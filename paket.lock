@@ -1,0 +1,6 @@
+FRAMEWORK: >= NET452
+NUGET
+  remote: http://api.nuget.org/v3/index.json
+    FAKE (4.34.5)
+    FParsec-Big-Data-Edition (1.0.2)
+    FSharp.Core (4.0.0.1) - redirects: force
