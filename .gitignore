@@ -2,3 +2,5 @@
 /packages
 /src/FsAsn1/bin
 /src/FsAsn1/obj
+/tests/FsAsn1.Tests/bin
+/tests/FsAsn1.Tests/obj

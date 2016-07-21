@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{7C01C4
 		paket.lock = paket.lock
 	EndProjectSection
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAsn1.Tests", "tests\FsAsn1.Tests\FsAsn1.Tests.fsproj", "{BB4B43B4-0122-4234-A012-ECCA6F667079}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{572BB091-207D-4131-A4AE-9C306AE4AE5D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{572BB091-207D-4131-A4AE-9C306AE4AE5D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{572BB091-207D-4131-A4AE-9C306AE4AE5D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
