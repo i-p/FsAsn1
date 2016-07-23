@@ -88,7 +88,7 @@ let readHeader (stream : IAsnStream) : AsnHeader =
     //TODO high tag number
     let length = readLength stream
             
-    AsnHeader(cls, encoding, tagNumber, length)
+    makeHeader(cls, encoding, tagNumber, length)
     
 //TODO negative    
 let decodeInteger (bytes: byte[]) : bigint =    
@@ -209,7 +209,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                 let ty = resolveType ctx ty
                 let v = readValue ctx header ty
                                 
-                readNext (AsnElement(header, v, position, ty) :: acc) rest
+                readNext (makeElement(header, v, position, ty) :: acc) rest
             else
                 acc |> List.toArray |> Array.rev            
         readNext [] components
@@ -296,4 +296,4 @@ and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let header = readHeader stream
     let ty = resolveType ctx ty
     let v = readValue ctx header ty    
-    AsnElement(header, v, position, ty)
+    makeElement(header, v, position, ty)

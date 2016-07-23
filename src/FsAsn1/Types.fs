@@ -42,12 +42,15 @@ type Length =
     | Definite of length: int * numberOfOctets: int
     | Indefinite
 
-type AsnHeader(cls, encoding, tag, length) =
-    member x.Class: AsnClass = cls
-    member x.Encoding: Encoding = encoding
-    member x.Tag: TagNumber = tag
-    member x.Length: Length = length
-    
+type AsnHeader =
+    { Class: AsnClass
+      Encoding: Encoding
+      Tag: TagNumber
+      Length: Length }
+
+let makeHeader(cls, encoding, tag, length) =
+    { Class = cls; Encoding = encoding; Tag = tag; Length = length }
+        
 type AsnBitString = { NumberOfUnusedBits: byte; Data: byte[] }
 
 // Value True is represented by an octet of any non-zero value.
@@ -56,12 +59,12 @@ type AsnBoolean =
     | False
 
 type AsnInteger = bigint
-    
-type AsnElement(header, value, offset, schemaType) =
-    member x.Header: AsnHeader = header
-    member x.Value: AsnValue = value
-    member x.Offset: int32 = offset
-    member x.SchemaType: Schema.AsnType option = schemaType
+
+type AsnElement = 
+    { Header: AsnHeader
+      Value: AsnValue
+      Offset: int32
+      SchemaType: Schema.AsnType option }
 
 and AsnValue =
     | Integer of AsnInteger
@@ -82,6 +85,9 @@ and AsnValue =
     | UTCTime of DateTimeOffset
     | ExplicitTag of AsnElement
     | Boolean of AsnBoolean
+
+let makeElement(header, value, offset, schemaType) =
+    { Header = header; Value = value; Offset = offset; SchemaType = schemaType }
      
 let (|SimpleValue|Collection|) (value: AsnValue) =
     match value with
