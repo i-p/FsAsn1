@@ -104,6 +104,7 @@
     <None Include="paket.references" />
     <Compile Include="Utils.fs" />
     <Compile Include="ParserTests.fs" />
+    <Compile Include="FParsecTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

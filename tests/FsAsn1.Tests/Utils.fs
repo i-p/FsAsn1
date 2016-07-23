@@ -47,3 +47,6 @@ let constrain cs ty =
 
 let toNamedType name = toType >> withName name
 let toConstrainedType c = toType >> constrain c
+
+let toIndexLineColumn (p: Position) =
+    (p.Index, p.Line, p.Column)
