@@ -1,7 +1,10 @@
 ﻿module FsAsn1.Tests.Utils
 
+open System
 open FsUnit
 open FParsec
+open FsAsn1.Types
+open FsAsn1.Reader
 open FsAsn1.Schema
 open FsAsn1.SchemaParser
 
@@ -50,3 +53,23 @@ let toConstrainedType c = toType >> constrain c
 
 let toIndexLineColumn (p: Position) =
     (p.Index, p.Line, p.Column)
+
+let hexStringToBytes (str: string) =    
+    str
+    |> Seq.filter (fun c -> c <> ' ' && c <> '|')
+    |> Seq.chunkBySize 2
+    |> Seq.map (fun chars -> Convert.ToByte(String(chars), 16))
+    |> Seq.toArray
+    
+let hexStringStream str = AsnArrayStream(hexStringToBytes str, 0)
+
+let shouldReadAsHeader args hexString =
+    let actual = hexString |> hexStringStream |> readHeader
+    let expected = makeHeader args
+    equal expected actual
+
+let shouldReadAsValue value hexString =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, (fun typeName -> None))    
+    let el = readElement ctx None       
+    equal value el.Value

@@ -105,6 +105,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ParserTests.fs" />
     <Compile Include="FParsecTests.fs" />
+    <Compile Include="ReaderTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
