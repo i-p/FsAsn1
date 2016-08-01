@@ -82,7 +82,7 @@ let readLength (stream : IAsnStream) : Length =
 let readHeader (stream : IAsnStream) : AsnHeader =    
     let b = stream.ReadByte() |> int
     let cls = decodeAsnClass (b >>> 6)
-    let encoding = if ((b >>> 5) ||| 1) = 0 then Primitive else Constructed
+    let encoding = if ((b >>> 5) &&& 1) = 0 then Primitive else Constructed
     let tagNumber = b &&& 0b11111
     
     //TODO high tag number
