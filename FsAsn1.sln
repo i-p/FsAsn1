@@ -13,6 +13,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{7C01C4
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAsn1.Tests", "tests\FsAsn1.Tests\FsAsn1.Tests.fsproj", "{BB4B43B4-0122-4234-A012-ECCA6F667079}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{B11896C7-A64E-4442-B9E8-9E1CABE7FE09}"
+	ProjectSection(SolutionItems) = preProject
+		build.fsx = build.fsx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

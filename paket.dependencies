@@ -6,3 +6,4 @@ nuget FParsec-Big-Data-Edition 1.0.2
 nuget FSharp.Core redirects: force
 nuget FsUnit
 nuget NUnit
+nuget NUnit.ConsoleRunner

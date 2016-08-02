@@ -56,6 +56,28 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Content Include="App.config" />
+    <None Include="paket.references" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="FParsecTests.fs" />
+    <Compile Include="ReaderTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\..\src\FsAsn1\FsAsn1.fsproj">
+      <Name>FsAsn1</Name>
+      <Project>{572bb091-207d-4131-a4ae-9c306ae4ae5d}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2' Or $(TargetFrameworkVersion) == 'v4.6.3')">
       <ItemGroup>
@@ -99,26 +121,4 @@
       </ItemGroup>
     </When>
   </Choose>
-  <ItemGroup>
-    <Content Include="App.config" />
-    <None Include="paket.references" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="ParserTests.fs" />
-    <Compile Include="FParsecTests.fs" />
-    <Compile Include="ReaderTests.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\src\FsAsn1\FsAsn1.fsproj">
-      <Name>FsAsn1</Name>
-      <Project>{572bb091-207d-4131-a4ae-9c306ae4ae5d}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
 </Project>

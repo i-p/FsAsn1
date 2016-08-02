@@ -4,3 +4,7 @@
 /src/FsAsn1/obj
 /tests/FsAsn1.Tests/bin
 /tests/FsAsn1.Tests/obj
+
+TestResult.xml
+/build
+/.fake
