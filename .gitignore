@@ -8,3 +8,5 @@
 TestResult.xml
 /build
 /.fake
+/src/FsAsn1.TypeProvider/bin
+/src/FsAsn1.TypeProvider/obj

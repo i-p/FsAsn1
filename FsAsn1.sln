@@ -18,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{B118
 		build.fsx = build.fsx
 	EndProjectSection
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAsn1.TypeProvider", "src\FsAsn1.TypeProvider\FsAsn1.TypeProvider.fsproj", "{1FC9FB9F-1D70-46BC-B8B3-6A7DEE4E9417}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BB4B43B4-0122-4234-A012-ECCA6F667079}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FC9FB9F-1D70-46BC-B8B3-6A7DEE4E9417}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FC9FB9F-1D70-46BC-B8B3-6A7DEE4E9417}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FC9FB9F-1D70-46BC-B8B3-6A7DEE4E9417}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FC9FB9F-1D70-46BC-B8B3-6A7DEE4E9417}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
