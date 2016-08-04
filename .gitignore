@@ -10,3 +10,4 @@ TestResult.xml
 /.fake
 /src/FsAsn1.TypeProvider/bin
 /src/FsAsn1.TypeProvider/obj
+/tests/FsAsn1.Tests/load-tp-assemblies.fsx

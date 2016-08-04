@@ -63,6 +63,9 @@
     <Compile Include="ParserTests.fs" />
     <Compile Include="FParsecTests.fs" />
     <Compile Include="ReaderTests.fs" />
+    <None Include="Script1.fsx" />
+    <None Include="Data\google_ssl.cer" />
+    <None Include="load-tp-assemblies.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
