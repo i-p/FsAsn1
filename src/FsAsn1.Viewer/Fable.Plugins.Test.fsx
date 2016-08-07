@@ -202,7 +202,7 @@ type ViewerPlugin() =
                      Type (Fable.Type.Number _);
                      Type (EntFullName("System.TimeSpan"))] ->
                     emit "({ dateTime: new Date($0,$1,$2,$3,$4,$5,$6), offset: $7 })"
-                | "dateTime", [] ->
+                | "get_DateTime", [] ->
                     prop "dateTime"
                 | _ -> 
                     None
