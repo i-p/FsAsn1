@@ -13,3 +13,4 @@ TestResult.xml
 /tests/FsAsn1.Tests/load-tp-assemblies.fsx
 /src/FsAsn1.Viewer/bin
 /src/FsAsn1.Viewer/obj
+/.vs
