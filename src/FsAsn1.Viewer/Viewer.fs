@@ -110,6 +110,9 @@ let select = applyClass "selected"
 let getElementById id : HTMLElement option = 
     document.getElementById id |> toOption
 
+[<Emit("$1[$0]")>]
+let getProp p obj: obj = failwith "JS only"
+
 let hoverId id =
     let n = getElementById("H" + id)
     let s = getElementById("S" + id)
@@ -124,8 +127,8 @@ let selectId id =
 
     select n selectedHexEl
     select s selectedStructureEl
-
-    let typeName = s?``typeName``$() :?> string
+    
+    let typeName = (getProp "typeName" s) :?> string
 
     let el = getElementById("t-" + typeName)
 
@@ -175,7 +178,7 @@ viewer.addEventListener_click(f1 (fun e ->
     if n.id.StartsWith("S") then
         n.id.Substring(1) |> selectId
 
-        let s = n?``typeName``$() :?> string
+        let s = (getProp "typeName" n) :?> string
 
         let el = document.getElementById("t-" + s)
 
