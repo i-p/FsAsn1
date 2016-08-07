@@ -11,3 +11,5 @@ TestResult.xml
 /src/FsAsn1.TypeProvider/bin
 /src/FsAsn1.TypeProvider/obj
 /tests/FsAsn1.Tests/load-tp-assemblies.fsx
+/src/FsAsn1.Viewer/bin
+/src/FsAsn1.Viewer/obj
