@@ -92,7 +92,7 @@ export default {
 	pint32:
 		parse.bind(many1String(text.digit), n => parse.of(Number.parseInt(n))),
 	spaces:
-		manyString(text.space),
+		parse.next(manyString(text.space), parse.of(null)),
 	numberLiteral: (opts, label) =>
 		parse.bind(many1String(text.digit), s => parse.of({ string: s })),
 	opt: p => parse.optional(null, p),
