@@ -66,9 +66,23 @@ Target "BuildTestsJS" (fun _ ->
         (@"node_modules\fable-compiler\index.js "
         + @"..\..\tests\FsAsn1.Tests\FsAsn1.Tests.fsproj "
         + @"--outDir ..\..\build\js "
-        + @"--plugins ..\..\build\Fable.Plugins.Test.dll "
+        + @"--plugins ..\..\build\Fable.Plugins.Test.dll ..\..\build\js\node_modules\fable-plugins-nunit\Fable.Plugins.NUnit.dll "
         + @"--refs FsAsn1=. "
         + @"--symbols FABLE")
+)
+
+Target "Babel" (fun _ ->
+    run "./build/js" "node" 
+        (@"node_modules\babel-cli\bin\babel.js " +
+         @"..\..\src\FsAsn1.Viewer\fparsec.es6.js " +
+         @"-o fparsec.js " +
+         @"--plugins ..\..\build\js\node_modules\babel-plugin-transform-es2015-modules-umd")
+)
+
+Target "RunTestsJS" (fun _ ->
+    run "./build/js" "node"
+        @"node_modules\mocha\bin\mocha fparsec.js ParserTests.js FParsecTests.js"
+)
 
 Target "FablePlugin" (fun _ ->
     ["src/FsAsn1.Viewer/Fable.Plugins.Test.fsx"]
