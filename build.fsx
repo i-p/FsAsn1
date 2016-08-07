@@ -84,6 +84,15 @@ Target "RunTestsJS" (fun _ ->
         @"node_modules\mocha\bin\mocha fparsec.js ParserTests.js FParsecTests.js"
 )
 
+Target "BuildViewerJS" (fun _ ->  
+    run "./build/js" "node"
+        (@"node_modules\fable-compiler\index.js " +
+         @"..\..\src\FsAsn1.Viewer\FsAsn1.Viewer.fsproj " +
+         @"--outDir ..\..\build\js " +
+         @"--plugins ..\..\build\Fable.Plugins.Test.dll " +
+         @"--refs FsAsn1=.")
+)
+
 Target "FablePlugin" (fun _ ->
     ["src/FsAsn1.Viewer/Fable.Plugins.Test.fsx"]
     |> Compile [
