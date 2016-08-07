@@ -14,14 +14,9 @@ module private Helper =
         Fable.Apply(
             Fable.Emit(emit) |> Fable.Value, i.args, Fable.ApplyMeth, i.returnType, i.range)
         |> Some
-
-    let import name path =
-        let specifier = Babel.ImportDefaultSpecifier(Babel.Identifier(name)) |> U3.Case2
-        Babel.ImportDeclaration([specifier], Babel.StringLiteral path)
-                            :> Babel.ModuleDeclaration |> U2.Case2
-
+    
     let log (info: Fable.ApplyInfo) =
-        System.IO.File.AppendAllText(@"c:\logs\fable.log", sprintf "%s %s %A %A\n" info.ownerFullName info.methodName info.methodTypeArgs info.args)
+        System.IO.File.AppendAllText(@"c:\logs\fable.log", sprintf "%s %s %A %A %A\n" info.ownerFullName info.methodName info.methodTypeArgs info.args info.methodKind)
 
     let icall com (info: Fable.ApplyInfo) meth =
         let callee, args = 
@@ -38,28 +33,35 @@ module private Helper =
         |> Some
 
 type BigIntegerPlugin() =
-    interface IDeclarePlugin with
-        member x.TryDeclareRoot com ctx file =
-            let original = Util.transformModDecls com ctx Util.declareRootModMember None file.Declarations
-
-            Helper.import "bigInt" "big-integer" :: original |> Some
-        member x.TryDeclare com ctx decl =
-            None
-
     interface IReplacePlugin with
         member x.TryReplace com (info: Fable.ApplyInfo) =
             let icall = Helper.icall com info
-            let emit = Helper.emit info
+            
+            let bigIntCall () =
+                Fable.Util.makeCall
+                    com
+                    info.range
+                    info.returnType
+                    (Fable.Util.ImportCall("big-integer", "default", None, false, info.args))
+                |> Some
 
+            let bigIntProp p =
+                Fable.Util.makeGet 
+                    info.range 
+                    info.returnType 
+                    (Fable.Expr.Value(Fable.ValueKind.ImportRef("default", "big-integer")))
+                    (Fable.Util.makeConst p)
+                |> Some
+                
             match info.ownerFullName with
             | "System.Numerics.BigInteger" ->
                 match info.methodName, info.args with
                 | ".ctor", [Type (Fable.Type.Number _)] ->
-                    emit "bigInt($0)"
+                    bigIntCall()
                 | "Parse", [Type (Fable.Type.String _)] ->
-                    emit "bigInt($0)"
+                    bigIntCall()
                 | "get_Zero", [] ->
-                    emit "bigInt.zero"
+                    bigIntProp "zero"                    
                 | _ ->
                     None
             | "Microsoft.FSharp.Core.Operators" ->
@@ -76,28 +78,25 @@ type BigIntegerPlugin() =
             | _ -> None
 
 type FParsecPlugin() =
-    interface IDeclarePlugin with
-        member x.TryDeclareRoot com ctx file =
-            let original = Util.transformModDecls com ctx Util.declareRootModMember None file.Declarations
-
-            Helper.import "fparsec" "./fparsec" :: original |> Some
-        member x.TryDeclare com ctx decl =
-            None
-
     interface IReplacePlugin with
         member x.TryReplace com (info: Fable.ApplyInfo) =
             let prop = Helper.prop info
             let emit = Helper.emit info
-
-            //TODO create AST instead of emit
             let forward () =
-                match info.methodKind with
-                | Fable.MemberKind.Field ->
-                    sprintf "fparsec.%s" info.methodName |> emit
-                | Fable.MemberKind.Method ->
-                    sprintf "fparsec.%s(%s)" info.methodName 
-                        (String.concat "," (List.mapi (fun i _ -> sprintf "$%d" i) info.args))
-                        |> emit
+                if info.args.IsEmpty then                
+                    Fable.Util.makeGet 
+                        info.range 
+                        info.returnType 
+                        (Fable.Expr.Value(Fable.ValueKind.ImportRef("default", "./fparsec")))
+                        (Fable.Util.makeConst info.methodName)
+                    |> Some
+                else
+                    Fable.Util.makeCall
+                        com
+                        info.range
+                        info.returnType
+                        (Fable.Util.ImportCall("./fparsec", "default", Some info.methodName, false, info.args))
+                    |> Some
 
             match info.ownerFullName with
             | "FParsec.CharParsers" ->
@@ -121,7 +120,7 @@ type FParsecPlugin() =
                     forward()
                 //TODO move these functions to fparsec.js
                 | "isAsciiUpper" ->
-                    emit "$0.toUpper() === $0"
+                    emit "$0 >= 'A' && $0 <= 'Z'"
                 | "isAsciiLower" ->
                     emit "$0 >= 'a' && $0 <= 'z'"
                 | "isAsciiLetter" ->
