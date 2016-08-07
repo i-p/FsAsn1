@@ -1,0 +1,211 @@
+﻿<!doctype html>
+<html>
+<head>  
+    <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
+    <style>
+        h1 {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 18px;
+            margin: 0;
+        }
+        header {
+            padding: 5px;
+            background-color: #013988;
+            padding: 5px;
+            color: white;
+        }
+        main {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 31px;
+            bottom: 0;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        #bytes {
+            margin-bottom: 5px;
+        }
+        #viewer div {
+            margin-left: 15px;
+            border-left: 1px solid white;
+            border-top: 1px solid white;
+            padding-left: 6px;
+            padding-top: 3px;
+        }
+
+        #viewer > div {
+            background-color: #e2ecfa;
+            margin: 2px;
+        }
+
+        #viewer, #schema-viewer {
+            float: left;
+            width: 30%;
+            overflow-y: scroll;
+            flex-grow: 1;
+        }
+
+        #hex-viewer {
+            float: left;
+            overflow-y: scroll;
+            background-color: #f8fbff;
+        }
+
+        #hex-viewer {
+            font-family: monospace;
+            position: relative;
+            transition: margin-top 0.3s ease-out;
+            width: 420px;
+            min-width: 420px;
+            display: flex;
+        }
+
+        #schema-viewer {
+            white-space: pre;
+            font-family: monospace;
+            background-color: #f8fbff;
+            padding-left: 10px;
+        }
+
+        #schema-viewer .hover {
+            outline: 3px solid #ffd3a0;
+            background-color: #ffedd8;
+        }
+
+        #hex-viewer .hover {
+            outline: 2px dotted orange;
+            background-color: #ffedd8;
+        }
+
+        #hex-viewer .selected {
+            outline: 3px solid orange;
+        }
+
+        #viewer .hover {
+            background-color: #ffedd8;
+        }
+
+        #viewer .selected {
+            outline: 2px solid orange;
+            background-color: rgb(255, 250, 244);
+        }
+
+        #schema-viewer .hover {
+            background-color: #ffedd8;
+        }
+
+        #schema-viewer .selected {
+            outline: 2px solid orange;
+            background-color: rgb(255, 250, 244);
+            display: inline-block;
+            padding: 5px;
+        }
+
+        main {
+            display: flex;
+        }
+
+        #viewer a, #viewer span {
+            display: inline-block;
+            margin-right: 10px;
+            line-height: 1.5;
+        }
+
+        .s-value {
+            font-weight: bold;
+        }
+
+        .s-asn-type, .s-offset-length {
+            color: gray;
+        }
+
+        .s-offset-length {
+            float: right;
+        }
+
+        #viewer {
+            font-family: Verdana;
+            font-size: 12px;
+        }
+
+        input[type=checkbox]:checked ~ div {
+            display: none;
+        }
+
+        input[type=checkbox] {
+            display: none;
+        }
+
+        input[type=checkbox] + label:before {
+            content: "-";
+        }
+
+        input[type=checkbox]:checked + label:before {
+            content: "+";
+        }
+
+        label {
+            display: inline-block;
+            width: 15px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ASN.1 Viewer</h1>
+    </header>
+    <main>
+        <div id="viewer">
+        </div>
+        <div id="hex-viewer" style="flex-flow: row wrap">
+            <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;">Offset</div>
+            <div style="width: 340px; background-color: #e2ecfa;">00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F</div>
+            <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;" id="hex-offsets">
+            </div>
+            <div id="bytes" style="width: 340px;"></div>
+        </div>
+        <div id="schema-viewer">
+        </div>
+    </main>
+    <script src="build/js/node_modules/core-js/client/core.min.js"></script>  
+    <script src="build/js/node_modules/requirejs/require.js"></script>
+    <script>
+        requirejs.config({
+            baseUrl: 'build/js',
+            paths: {
+                'fable-core': 'node_modules/fable-core/fable-core',
+                'big-integer': 'node_modules/big-integer/BigInteger.min',
+                'bennu': 'bennu',
+                'nu-stream': 'bennu/dependencies/nu',
+                'seshet': 'bennu/dependencies/seshet/seshet',
+                'fparsec': 'fparsec'
+            },
+            shim: {
+                'big-integer': {
+                    exports: 'bigInt'
+                }
+            }
+        });
+
+        define("bennu", ["bennu/parse", "bennu/lang", "bennu/text"], function (parse, lang, text) {
+            return {
+                parse: parse,
+                lang: lang,
+                text: text
+            };
+        });
+
+        define("nu-stream", ["nu-stream/stream"], function (stream) {
+            return {
+                stream: stream
+            };
+        });
+
+        requirejs(["Viewer"]);
+    </script>
+</body>
+</html>
