@@ -1,4 +1,5 @@
 #r @"packages\FAKE\tools\FakeLib.dll"
+#r "packages/Suave/lib/net40/Suave.dll"
 
 open System
 open Fake.FscHelper
@@ -101,6 +102,27 @@ Target "FablePlugin" (fun _ ->
     ]
 )
 
+
+
+open Suave
+open Suave.Operators
+
+Target "WebServer" (fun _ ->
+    let app : WebPart =
+  
+        choose [
+            Filters.GET >=> choose [ 
+                Filters.path "/" >=> Files.browseFileHome "src/FsAsn1.Viewer/index.html";
+                Filters.path "/rfc5280.txt" >=> Files.browseFileHome "tests/FsAsn1.Tests/Data/rfc5280.txt";
+                Files.browseHome ]
+            RequestErrors.NOT_FOUND "Page not found." ]
+
+    startWebServer { 
+        defaultConfig with 
+            homeFolder = Some @"C:\dev\FsAsn1"
+            logger = Suave.Logging.Loggers.ConsoleWindowLogger(Logging.LogLevel.Debug)
+        } app    
+)
 
 Target "All" DoNothing
 

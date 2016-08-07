@@ -8,3 +8,4 @@ nuget FSharp.TypeProviders.StarterPack
 nuget FsUnit
 nuget NUnit
 nuget NUnit.ConsoleRunner
+nuget Suave
