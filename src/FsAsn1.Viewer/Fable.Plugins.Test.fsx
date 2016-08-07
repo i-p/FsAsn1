@@ -193,9 +193,27 @@ type ViewerPlugin() =
                     [Type (EntFullName("System.DateTime")); 
                      Type (EntFullName("System.TimeSpan"))] ->
                     emit "({ dateTime: $0, offset: $1 })"
+                | ".ctor", 
+                    [Type (Fable.Type.Number _);
+                     Type (Fable.Type.Number _);
+                     Type (Fable.Type.Number _);
+                     Type (Fable.Type.Number _);
+                     Type (Fable.Type.Number _);
+                     Type (Fable.Type.Number _);
+                     Type (Fable.Type.Number _);
+                     Type (EntFullName("System.TimeSpan"))] ->
+                    emit "({ dateTime: new Date($0,$1,$2,$3,$4,$5,$6), offset: $7 })"
                 | "dateTime", [] ->
                     prop "dateTime"
                 | _ -> 
+                    None
+            | "System.Convert" ->
+                match info.methodName, info.args with
+                | "ToByte", 
+                    [Type (Fable.Type.String _); 
+                     Type (Fable.Type.Number _)] ->
+                     emit "parseInt($0,$1)"
+                | _ ->
                     None
             | _ ->
                 None
