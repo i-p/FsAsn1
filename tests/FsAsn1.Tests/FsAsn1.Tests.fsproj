@@ -65,6 +65,7 @@
     <Compile Include="ReaderTests.fs" />
     <None Include="Script1.fsx" />
     <None Include="Data\google_ssl.cer" />
+    <Content Include="Data\rfc5280.txt" />
     <None Include="load-tp-assemblies.fsx" />
   </ItemGroup>
   <ItemGroup>
