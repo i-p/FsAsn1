@@ -244,52 +244,54 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                 acc |> List.toArray |> Array.rev            
         readNext []
         
-
+and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue =
+    let stream = ctx.Stream
+    match tag with
+    | UniversalTag.Sequence ->                
+        readCollection ctx ty |> Sequence
+    | UniversalTag.Set->                
+        readCollection ctx ty |> Set
+    | UniversalTag.Integer ->                
+        stream.ReadBytes(len) |> decodeInteger |> Integer
+    | UniversalTag.ObjectIdentifier ->                
+        readOid stream len |> ObjectIdentifier
+    | UniversalTag.Null ->
+        Null
+    | UniversalTag.PrintableString ->
+        let str = stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString
+        if (isValidPrintableString str) then
+            PrintableString str
+        else
+            failwith "Invalid printable string"
+    | UniversalTag.UTF8String ->
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String
+    | UniversalTag.UTCTime ->
+        stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime
+    | UniversalTag.BitString ->
+        let numberOfUnusedBits = stream.ReadByte()            
+        let bytes = stream.ReadBytes(len - 1)
+        BitString { NumberOfUnusedBits = numberOfUnusedBits; Data = bytes }
+    | UniversalTag.OctetString ->
+        stream.ReadBytes(len) |> OctetString
+    | UniversalTag.Boolean ->
+        match stream.ReadByte() with
+        | 0uy -> Boolean(AsnBoolean.False)
+        | v -> Boolean(AsnBoolean.True(v))                
+    | _ ->
+        printfn "Unsupported universal class tag '%d'" (int tag)
+        stream.ReadBytes(len) |> Unknown
 
 and readValue (ctx : AsnContext) (h: AsnHeader) ty =    
     let (cls, tagNumber, length) = h.Class, h.Tag, h.Length
     match length with
-    | Definite(l, _) ->
+    | Definite(len, _) ->
         // TODO create separate function
-        let ctx = ctx.WithBoundedStream(l)
+        let ctx = ctx.WithBoundedStream(len)
         let stream = ctx.Stream
 
         match cls with
         | AsnClass.Universal-> 
-            match (LanguagePrimitives.EnumOfValue tagNumber) with
-            | UniversalTag.Sequence ->                
-                readCollection ctx ty |> Sequence
-            | UniversalTag.Set->                
-                readCollection ctx ty |> Set
-            | UniversalTag.Integer ->                
-                stream.ReadBytes(l) |> decodeInteger |> Integer
-            | UniversalTag.ObjectIdentifier ->                
-                readOid stream l |> ObjectIdentifier
-            | UniversalTag.Null ->
-                Null
-            | UniversalTag.PrintableString ->
-                let str = stream.ReadBytes(l) |> System.Text.Encoding.ASCII.GetString
-                if (isValidPrintableString str) then
-                    PrintableString str
-                else
-                    failwith "Invalid printable string"
-            | UniversalTag.UTF8String ->
-                stream.ReadBytes(l) |> System.Text.Encoding.UTF8.GetString |> UTF8String
-            | UniversalTag.UTCTime ->
-                stream.ReadBytes(l) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime
-            | UniversalTag.BitString ->
-                let numberOfUnusedBits = stream.ReadByte()            
-                let bytes = stream.ReadBytes(l - 1)
-                BitString { NumberOfUnusedBits = numberOfUnusedBits; Data = bytes }
-            | UniversalTag.OctetString ->
-                stream.ReadBytes(l) |> OctetString
-            | UniversalTag.Boolean ->
-                match stream.ReadByte() with
-                | 0uy -> Boolean(AsnBoolean.False)
-                | v -> Boolean(AsnBoolean.True(v))                
-            | _ ->
-                printfn "Unsupported universal class tag '%d'" tagNumber
-                stream.ReadBytes(l) |> Unknown
+            readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len ty
         | ContextSpecific ->
             match ty with
             | Kind(TaggedType(_, _, Some Explicit, ty2))
@@ -300,13 +302,13 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
                 readValue ctx h (Some ty2)
             | None ->
                 printfn "Unknown underlying type for a context specific class"
-                stream.ReadBytes(l) |> Unknown
+                stream.ReadBytes(len) |> Unknown
             | _ ->
                 printfn "Unsupported"                
-                stream.ReadBytes(l) |> Unknown
+                stream.ReadBytes(len) |> Unknown
         | _ -> 
             printfn "Unknown tag number of class %A: %d" cls tagNumber
-            stream.ReadBytes(l) |> Unknown
+            stream.ReadBytes(len) |> Unknown
     | Indefinite -> failwith "Not supported yet"    
 and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let stream = ctx.Stream
