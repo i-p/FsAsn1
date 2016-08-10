@@ -105,10 +105,12 @@ let readHeader (stream : IAsnStream) : AsnHeader =
     let length = readLength stream
             
     makeHeader(cls, encoding, tagNumber, length)
-    
-//TODO negative    
-let decodeInteger (bytes: byte[]) : bigint =    
-    bytes |> Array.fold (fun sum b -> sum * (bigint 256) + (bigint (int b))) AsnInteger.Zero
+ 
+let decodeInteger (bytes: byte[]) : bigint =
+    let firstByte = bytes.[0] |> int
+    let initialValue = (firstByte &&& 0x7F) + (firstByte &&& 0x80) * -1
+    Seq.skip 1 bytes 
+    |> Seq.fold (fun sum b -> sum * (bigint 256) + (bigint (int b))) (bigint initialValue)
 
 let readOid (stream: IAsnStream) (length: int) : bigint[] =
 

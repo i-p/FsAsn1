@@ -24,6 +24,14 @@ let ``read long integer``() =
     "02 08 5D 90 88 88 52 28 73 30" |> shouldReadAsValue (Integer(bigint.Parse "6742038761248944944"))
 
 [<Test>]
+let ``read smallest integer represented by 2 bytes``() =
+    "02 02 00 80" |> shouldReadAsValue (Integer(bigint(128)))
+
+[<Test>]
+let ``read negative integer``() =
+    "02 01 80" |> shouldReadAsValue (Integer(bigint(-128)))
+
+[<Test>]
 let ``read object identifier``() = 
     "06 09 2A 86 48 86 F7 0D 01 01 0B" |> shouldReadAsValue (ObjectIdentifier ([|1;2;840;113549;1;1;11|] |> Array.map bigint))
 
