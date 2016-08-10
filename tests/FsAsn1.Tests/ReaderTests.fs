@@ -38,3 +38,7 @@ let ``read octet string``() =
 [<Test>]
 let ``read UTC time``() = 
     "17 0D 31 36 30  35 31 38 31 31 32 31 34 32 5A" |> shouldReadAsValue (UTCTime(DateTimeOffset(2016, 5, 18, 11, 21, 42, 0, TimeSpan.Zero)))
+
+[<Test>]
+let ``read long tag``() =
+    "DF 82 03 05" |> shouldReadAsHeader (Private, Primitive, 259, Definite(5, 1)) 

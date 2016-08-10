@@ -78,14 +78,30 @@ let readLength (stream : IAsnStream) : Length =
         stream.ReadBytes(value)
         |> Array.fold (fun sum b -> sum * 256 + int b) 0 
         |> fun x -> Definite(x, value + 1)
-        
+
+let readTagNumber (tagByte: int) (stream: IAsnStream) : TagNumber =
+    let tagNumber = tagByte &&& 0b11111
+    let isShortForm = tagNumber < 31
+
+    if isShortForm then
+        tagNumber
+    else
+        //TODO check max value
+        let rec readByte acc =
+            let b = stream.ReadByte() |> int
+            let value = b &&& 0b01111111
+            let isEnd = (value = b)
+            let newAcc = acc * 128 + value
+
+            if isEnd then newAcc else readByte newAcc
+
+        readByte 0
+
 let readHeader (stream : IAsnStream) : AsnHeader =    
     let b = stream.ReadByte() |> int
     let cls = decodeAsnClass (b >>> 6)
     let encoding = if ((b >>> 5) &&& 1) = 0 then Primitive else Constructed
-    let tagNumber = b &&& 0b11111
-    
-    //TODO high tag number
+    let tagNumber = readTagNumber b stream            
     let length = readLength stream
             
     makeHeader(cls, encoding, tagNumber, length)
