@@ -106,7 +106,10 @@ let (|SimpleValue|Collection|) (value: AsnValue) =
     | Unknown(_)
     | BitString(_)
     | UTCTime(_)
-    | Boolean(_) ->
+    | Boolean(_)
+    | RelativeObjectIdentifier(_)
+    | VisibleString(_)
+    | IA5String(_) ->
         SimpleValue()
     | Sequence(items)        
     | SequenceOf(items)
