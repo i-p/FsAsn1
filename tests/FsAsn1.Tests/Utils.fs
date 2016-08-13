@@ -56,7 +56,7 @@ let toIndexLineColumn (p: Position) =
 
 let hexStringToBytes (str: string) =    
     str
-    |> Seq.filter (fun c -> c <> ' ' && c <> '|')
+    |> Seq.filter (fun c -> c <> ' ' && c <> '|' && c <> '\n' && c <> '\r')
     |> Seq.chunkBySize 2
     |> Seq.map (fun chars -> Convert.ToByte(String(chars), 16))
     |> Seq.toArray
