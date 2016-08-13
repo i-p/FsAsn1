@@ -70,13 +70,13 @@ let ``X.690 8.6.4.2 Example - Bitstring primitive encoding``() =
                             { Data = [| 0x0Auy; 0x3Buy; 0x5Fuy; 0x29uy; 0x1Cuy; 0xD0uy |];
                               NumberOfUnusedBits = 4uy } ))
 
-//TODO X.690 contains also example of bitstring with constructed encoding, but it is not supported yet
+//TODO add example of bitstring with constructed encoding (it is not supported now)
 
 [<Test>]
 let ``X.690 8.8.2 Example - NULL``() =
     "05 00" |> shouldReadAsValue (AsnValue.Null)
 
-//Array.map (fun b -> printf "%X" (int b)) (System.Text.Encoding.ASCII.GetBytes("Smith"))
+
 
 [<Test>]
 let ``X.690 8.9.3 Example SEQUENCE``() =
@@ -138,3 +138,9 @@ let ``X.690 8.19.5 Example OBJECT IDENTIFIER``() =
 [<Test>]
 let ``X.690 8.20.5 Example - Relative object identifier``() =
     ("0D 04 C27B0302") |> shouldReadAsValue (AsnValue.RelativeObjectIdentifier([|bigint(8571); bigint(3); bigint(2)|]))
+
+[<Test>]
+let ``X.690 8.23.5.4 Example - VisibleString (primitive form)``() =
+    ("1A 05 4A6F6E6573") |> shouldReadAsValue (AsnValue.VisibleString("Jones"))
+
+//TODO add additional examples for VisibleString with constructed form and definite/indefinite length (it is not supported now)
