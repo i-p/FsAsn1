@@ -115,7 +115,9 @@ pconstraintRef :=
 definedValueRef := valueReference |>> ReferencedValue
 let referencedValue = definedValue
 
-valueRef := booleanValue <|> integerValue <|> referencedValue
+let sequenceOfValue = inBraces (sepBy value (str_ws ",")) |>> SequenceOfValue
+
+valueRef := booleanValue <|> integerValue <|> referencedValue <|> sequenceOfValue
 
 
 let namedTypeModifier = 

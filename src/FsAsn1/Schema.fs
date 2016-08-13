@@ -42,6 +42,7 @@ and Value =
     | ReferencedValue of string 
     | BooleanValue of bool
     | IntegerValue of bigint
+    | SequenceOfValue of Value list
 and NamedNumberValue = 
     | SignedNumber of bigint
     | DefinedValue of Value

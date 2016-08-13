@@ -300,3 +300,14 @@ let ``parse SET``() =
         (SetType(
             [ComponentType("name", ReferencedType "Name" |> toType, None)
              ComponentType("dateOfBirth", TaggedType(None, 0, None, ReferencedType "Date" |> toType) |> toType, None) ] ))
+
+[<Test>]
+let ``parse component with SEQUENCE OF type`` () =
+    "children  [3] IMPLICIT SEQUENCE OF ChildInformation DEFAULT {}" 
+    |> shouldParseAs componentType
+        (ComponentType("children",
+            (TaggedType(None, 3, Some TagKind.Implicit, 
+                (AsnTypeKind.SequenceOfType
+                    (None, SequenceOfType.SequenceOfType(referencedType("ChildInformation")))) |> toType)) |> toType,
+            Some(Default(SequenceOfValue([])))))
+
