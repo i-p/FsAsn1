@@ -12,6 +12,7 @@ type TagClass =
 type AsnTypeKind =    
     | SequenceType of ComponentType list 
     | SequenceOfType of Constraint option * SequenceOfType
+    | SetType of ComponentType list
     | SetOfType of Constraint option * SetOfType
     | ChoiceType of (string * AsnType) list
     | BooleanType

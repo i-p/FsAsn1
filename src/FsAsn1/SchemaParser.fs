@@ -139,6 +139,9 @@ let componentTypeList =
 let sequenceType = 
     (str_ws "SEQUENCE" >>. inBraces componentTypeList) |>> SequenceType
 
+let setType =
+    (str_ws "SET" >>. inBraces componentTypeList) |>> SetType
+
 // .>>? before OF
 let sequenceOfType = 
     attempt (str_ws "SEQUENCE" >>. opt (psizeConstraint) .>> str_ws "OF") 
@@ -168,10 +171,12 @@ let typeAssignment =
 
 //TODO choice doesn't work in JS yet
 // sequenceOfType must be before sequenceType
+// setOfType must be before setType
 let ptypeKind = 
     (sequenceOfType
     <|> sequenceType
     <|> setOfType
+    <|> setType
     <|> choiceType
     <|> pnull 
     <|> bitString

@@ -292,3 +292,11 @@ let ``parse size constraint with value range (IntegerValue..NamedValue)`` () =
             (ValueRange
                 (LowerEndpoint.Value(IntegerValue(bigint 0)), 
                  UpperEndpoint.Value(ReferencedValue("a-named-value")))))
+
+[<Test>]
+let ``parse SET``() =
+    "SET { name  Name, dateOfBirth  [0] Date }"
+    |> shouldParseAs ptypeKind 
+        (SetType(
+            [ComponentType("name", ReferencedType "Name" |> toType, None)
+             ComponentType("dateOfBirth", TaggedType(None, 0, None, ReferencedType "Date" |> toType) |> toType, None) ] ))
