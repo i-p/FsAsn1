@@ -17,6 +17,7 @@ type UniversalTag =
     | T61String = 20
     | IA5String = 22
     | UTCTime = 23
+    | VisibleString = 26
 
 type AsnClass =
     | Universal
@@ -74,6 +75,7 @@ and AsnValue =
     | ObjectIdentifier of AsnInteger[]
     | OctetString of byte[]
     | PrintableString of string
+    | VisibleString of string
     | UTF8String of string
     | Sequence of AsnElement[]
     | SequenceOf of AsnElement[]

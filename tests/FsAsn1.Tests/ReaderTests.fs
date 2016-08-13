@@ -50,3 +50,43 @@ let ``read UTC time``() =
 [<Test>]
 let ``read long tag``() =
     "DF 82 03 05" |> shouldReadAsHeader (Private, Primitive, 259, Definite(5, 1)) 
+
+
+let schema = FsAsn1.SchemaParser.parseTypeAssignments """
+                Type1 ::= VisibleString
+                Type2 ::= [APPLICATION 3] IMPLICIT Type1
+                Type3 ::= [2] Type2
+                Type4 ::= [APPLICATION 7] IMPLICIT Type3
+                Type5 ::= [2] IMPLICIT Type2 
+                """ 
+                |> Map.ofList
+
+[<Test>]
+let ``X.690 8.14 Example Type1``() =
+    ("1A 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type1" (AsnValue.VisibleString("Jones"))
+
+[<Test>]
+let ``X.690 8.14 Example Type2``() =
+    ("43 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type2" (AsnValue.VisibleString("Jones"))
+
+[<Test>]
+let ``X.690 8.14 Example Type3``() =
+    ("A2 07 43 05 4A6F6E6573", schema)
+    |> shouldReadAsValueOfType "Type3" (AsnValue.ExplicitTag
+                                            { Header = makeHeader(Application, Primitive, 3, Definite(5, 1));
+                                              Value = AsnValue.VisibleString("Jones");
+                                              Offset = 2;
+                                              SchemaType = Map.tryFind "Type2" schema } )
+
+[<Test>]
+let ``X.690 8.14 Example Type4``() =
+    ("67 07 43 05 4A6F6E6573", schema)
+    |> shouldReadAsValueOfType "Type4" (AsnValue.ExplicitTag
+                                            { Header = makeHeader(Application, Primitive, 3, Definite(5, 1));
+                                              Value = AsnValue.VisibleString("Jones");
+                                              Offset = 2;
+                                              SchemaType = Map.tryFind "Type2" schema } )
+
+[<Test>]
+let ``X.690 8.14 Example Type5``() =
+    ("82 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type5" (AsnValue.VisibleString("Jones"))

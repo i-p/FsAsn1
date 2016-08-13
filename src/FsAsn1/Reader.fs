@@ -265,6 +265,8 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
             failwith "Invalid printable string"
     | UniversalTag.UTF8String ->
         stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String
+    | UniversalTag.VisibleString ->  //TODO this is not correct (https://www.itscj.ipsj.or.jp/iso-ir/006.pdf)
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> VisibleString
     | UniversalTag.UTCTime ->
         stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime
     | UniversalTag.BitString ->
@@ -281,6 +283,27 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         printfn "Unsupported universal class tag '%d'" (int tag)
         stream.ReadBytes(len) |> Unknown
 
+and toUniversalTag (ctx: AsnContext) (ty: AsnTypeKind) =
+    match ty with
+    | AsnTypeKind.AnyType(_) -> None
+    | AsnTypeKind.SequenceType(_) -> Some UniversalTag.Sequence
+    | AsnTypeKind.SequenceOfType(_, _) -> Some UniversalTag.Sequence
+    | AsnTypeKind.SetOfType(_, _) -> Some UniversalTag.Set
+    | AsnTypeKind.ChoiceType(_) -> None
+    | AsnTypeKind.BooleanType -> Some UniversalTag.Boolean
+    | AsnTypeKind.NullType -> Some UniversalTag.Null
+    | AsnTypeKind.BitStringType -> Some UniversalTag.BitString
+    | AsnTypeKind.ObjectIdentifierType -> Some UniversalTag.ObjectIdentifier
+    | AsnTypeKind.OctetStringType -> Some UniversalTag.OctetString
+    | AsnTypeKind.IntegerType(_) -> Some UniversalTag.Integer
+    | AsnTypeKind.TaggedType(_, _, _, _) -> None
+    | AsnTypeKind.ReferencedType("PrintableString") -> Some UniversalTag.PrintableString
+    | AsnTypeKind.ReferencedType("VisibleString") -> Some UniversalTag.VisibleString
+    | AsnTypeKind.ReferencedType("UTF8String") -> Some UniversalTag.UTF8String
+    | AsnTypeKind.ReferencedType(name) ->
+        let ty = ctx.LookupType name 
+        ty |> Option.bind (fun t -> toUniversalTag ctx t.Kind)
+
 and readValue (ctx : AsnContext) (h: AsnHeader) ty =    
     let (cls, tagNumber, length) = h.Class, h.Tag, h.Length
     match length with
@@ -292,23 +315,32 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
         match cls with
         | AsnClass.Universal-> 
             readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len ty
-        | ContextSpecific ->
+        | AsnClass.Private
+        | AsnClass.Application
+        | AsnClass.ContextSpecific ->
             match ty with
             | Kind(TaggedType(_, _, Some Explicit, ty2))
             // TODO the default tag kind should be specified in ASN module definition            
             | Kind(TaggedType(_, _, None, ty2)) ->
                 readElement ctx (Some ty2) |> ExplicitTag
             | Kind(TaggedType(_, _, Some Implicit, ty2)) ->
-                readValue ctx h (Some ty2)
+                let resolve t = 
+                    match Some t with 
+                    | Kind(ReferencedType n) -> defaultArg (ctx.LookupType n) t;
+                    | _ -> t
+                let ty2 = resolve ty2
+                
+                match toUniversalTag ctx ty2.Kind with
+                | Some tag ->
+                    readValueUniversal ctx tag len ty
+                | None ->
+                    readValue ctx { h with Class = AsnClass.ContextSpecific } (Some ty2)
             | None ->
-                printfn "Unknown underlying type for a context specific class"
+                printfn "Unknown underlying type for tag: %A %d" cls tagNumber
                 stream.ReadBytes(len) |> Unknown
             | _ ->
-                printfn "Unsupported"                
+                printfn "Unsupported"
                 stream.ReadBytes(len) |> Unknown
-        | _ -> 
-            printfn "Unknown tag number of class %A: %d" cls tagNumber
-            stream.ReadBytes(len) |> Unknown
     | Indefinite -> failwith "Not supported yet"    
 and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let stream = ctx.Stream

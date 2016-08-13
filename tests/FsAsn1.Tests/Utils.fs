@@ -73,3 +73,10 @@ let shouldReadAsValue value hexString =
     let ctx = AsnContext(stream, (fun typeName -> None))    
     let el = readElement ctx None       
     equal value el.Value
+
+let shouldReadAsValueOfType typeName value (hexString, types) =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, (fun typeName -> Map.tryFind typeName types))
+    let el = readElement ctx (Some (Map.find typeName types))
+
+    equal (typeName, value) (el.SchemaType.Value.TypeName.Value, el.Value)
