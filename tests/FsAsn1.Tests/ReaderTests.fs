@@ -134,3 +134,7 @@ let ``X.690 8.14 Example Type5``() =
 [<Test>]
 let ``X.690 8.19.5 Example OBJECT IDENTIFIER``() =
     ("06 03 883703") |> shouldReadAsValue (AsnValue.ObjectIdentifier([|bigint(2); bigint(999); bigint(3)|]))
+
+[<Test>]
+let ``X.690 8.20.5 Example - Relative object identifier``() =
+    ("0D 04 C27B0302") |> shouldReadAsValue (AsnValue.RelativeObjectIdentifier([|bigint(8571); bigint(3); bigint(2)|]))

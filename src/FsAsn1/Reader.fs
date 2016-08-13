@@ -112,8 +112,7 @@ let decodeInteger (bytes: byte[]) : bigint =
     Seq.skip 1 bytes 
     |> Seq.fold (fun sum b -> sum * (bigint 256) + (bigint (int b))) (bigint initialValue)
 
-let readOid (stream: IAsnStream) (length: int) : bigint[] =
-
+let readRelativeOid (stream: IAsnStream) (length: int) : bigint[] =
     let rec readNextValue valuesAcc valueAcc =        
         if stream.CanRead(1) then                
             let b = stream.ReadByte() 
@@ -127,7 +126,11 @@ let readOid (stream: IAsnStream) (length: int) : bigint[] =
             //TODO check that valueAcc is zero
             valuesAcc |> List.toArray |> Array.rev
 
-    let subidentifiers = readNextValue [] bigint.Zero
+    readNextValue [] bigint.Zero
+
+
+let readOid (stream: IAsnStream) (length: int) : bigint[] =
+    let subidentifiers = readRelativeOid stream length
     let first = subidentifiers.[0]
     let component1, component2 = 
         if first < bigint(40) then
@@ -139,6 +142,7 @@ let readOid (stream: IAsnStream) (length: int) : bigint[] =
 
     //TODO use list instead of array?
     Array.concat [[|component1; component2|]; (Array.skip 1 subidentifiers)]
+
 
 let decodeUTCTime (str: string) =     
     let read2Digits (str: string) index =
@@ -259,6 +263,8 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         stream.ReadBytes(len) |> decodeInteger |> Integer
     | UniversalTag.ObjectIdentifier ->                
         readOid stream len |> ObjectIdentifier
+    | UniversalTag.RelativeObjectIdentifier ->
+        readRelativeOid stream len |> RelativeObjectIdentifier
     | UniversalTag.Null ->
         Null
     | UniversalTag.PrintableString ->
@@ -289,6 +295,7 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         printfn "Unsupported universal class tag '%d'" (int tag)
         stream.ReadBytes(len) |> Unknown
 
+//TODO add relative object identifier
 and toUniversalTag (ctx: AsnContext) (ty: AsnTypeKind) =
     match ty with
     | AsnTypeKind.AnyType(_) -> None

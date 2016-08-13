@@ -11,6 +11,7 @@ type UniversalTag =
     | Null = 5
     | ObjectIdentifier = 6
     | UTF8String = 12
+    | RelativeObjectIdentifier = 13
     | Sequence = 16
     | Set = 17
     | PrintableString = 19
@@ -73,6 +74,7 @@ and AsnValue =
     // Depth and integer size are not limited
     // http://www.viathinksoft.de/~daniel-marschall/asn.1/oid_facts.html#chap4
     | ObjectIdentifier of AsnInteger[]
+    | RelativeObjectIdentifier of AsnInteger[]
     | OctetString of byte[]
     | PrintableString of string
     | VisibleString of string
