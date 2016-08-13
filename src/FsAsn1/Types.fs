@@ -76,6 +76,7 @@ and AsnValue =
     | OctetString of byte[]
     | PrintableString of string
     | VisibleString of string
+    | IA5String of string
     | UTF8String of string
     | Sequence of AsnElement[]
     | SequenceOf of AsnElement[]

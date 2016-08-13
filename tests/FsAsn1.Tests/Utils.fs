@@ -80,3 +80,7 @@ let shouldReadAsValueOfType typeName value (hexString, types) =
     let el = readElement ctx (Some (Map.find typeName types))
 
     equal (typeName, value) (el.SchemaType.Value.TypeName.Value, el.Value)
+
+let shouldReadAsLength len hexString =
+    let stream = hexString |> hexStringStream
+    equal len (readLength stream)

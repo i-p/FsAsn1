@@ -51,6 +51,46 @@ let ``read UTC time``() =
 let ``read long tag``() =
     "DF 82 03 05" |> shouldReadAsHeader (Private, Primitive, 259, Definite(5, 1)) 
 
+[<Test>]
+let ``X.690 8.1.3.4 Example - short length form``() =
+    "26" |> shouldReadAsLength (Definite(38, 1))
+
+[<Test>]
+let ``X.690 8.1.3.5 Example - long length form``() =
+    "81 C9" |> shouldReadAsLength (Definite(201, 2))
+
+[<Test>]
+let ``X.690 8.2.2 Example - TRUE``() =
+    "01 01 FF" |> shouldReadAsValue (AsnValue.Boolean(AsnBoolean.True(255uy)))
+
+[<Test>]
+let ``X.690 8.6.4.2 Example - Bitstring primitive encoding``() =
+    "03 07 040A3B5F291CD0" 
+    |> shouldReadAsValue (AsnValue.BitString(
+                            { Data = [| 0x0Auy; 0x3Buy; 0x5Fuy; 0x29uy; 0x1Cuy; 0xD0uy |];
+                              NumberOfUnusedBits = 4uy } ))
+
+//TODO X.690 contains also example of bitstring with constructed encoding, but it is not supported yet
+
+[<Test>]
+let ``X.690 8.8.2 Example - NULL``() =
+    "05 00" |> shouldReadAsValue (AsnValue.Null)
+
+//Array.map (fun b -> printf "%X" (int b)) (System.Text.Encoding.ASCII.GetBytes("Smith"))
+
+[<Test>]
+let ``X.690 8.9.3 Example SEQUENCE``() =
+    let schema = parse FsAsn1.SchemaParser.typeAssignments "T ::= SEQUENCE {name IA5String, ok BOOLEAN}" |> Map.ofList
+    ("30 0A | 16 05 536D697468 | 01 01 FF", schema)
+    |> shouldReadAsValueOfType "T" (AsnValue.Sequence
+                                        [| { Header = makeHeader(Universal, Primitive, int UniversalTag.IA5String, Definite(5, 1));
+                                             Value = AsnValue.IA5String("Smith");
+                                             Offset = 2;
+                                             SchemaType = Some(toType (FsAsn1.Schema.ReferencedType("IA5String"))) }
+                                           { Header = makeHeader(Universal, Primitive, int UniversalTag.Boolean, Definite(1, 1));
+                                             Value = AsnValue.Boolean(AsnBoolean.True(255uy));
+                                             Offset = 9;
+                                             SchemaType = Some(toType FsAsn1.Schema.BooleanType) } |] )
 
 let schema = FsAsn1.SchemaParser.parseTypeAssignments """
                 Type1 ::= VisibleString
@@ -90,3 +130,7 @@ let ``X.690 8.14 Example Type4``() =
 [<Test>]
 let ``X.690 8.14 Example Type5``() =
     ("82 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type5" (AsnValue.VisibleString("Jones"))
+
+[<Test>]
+let ``X.690 8.19.5 Example OBJECT IDENTIFIER``() =
+    ("06 03 883703") |> shouldReadAsValue (AsnValue.ObjectIdentifier([|bigint(2); bigint(999); bigint(3)|]))

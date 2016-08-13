@@ -119,7 +119,7 @@ let readOid (stream: IAsnStream) (length: int) : bigint[] =
             let b = stream.ReadByte() 
             let value = valueAcc * (bigint 128) + bigint (int (b &&& 0b01111111uy))
 
-            if ((b &&& 0b10000000uy) > 0uy) then
+            if ((b &&& 0x80uy) > 0uy) then
                 readNextValue valuesAcc value
             else
                 readNextValue (value :: valuesAcc) bigint.Zero
@@ -127,14 +127,18 @@ let readOid (stream: IAsnStream) (length: int) : bigint[] =
             //TODO check that valueAcc is zero
             valuesAcc |> List.toArray |> Array.rev
 
-    let first = stream.ReadByte()
-    let value1 = bigint ((int first &&& 0b01111111) / 40)
-    let value2 = bigint ((int first &&& 0b01111111) % 40)
+    let subidentifiers = readNextValue [] bigint.Zero
+    let first = subidentifiers.[0]
+    let component1, component2 = 
+        if first < bigint(40) then
+            bigint.Zero, first
+        else if first < bigint(80) then
+            bigint.One, first - bigint(40)
+        else
+            bigint(2), first - bigint(80)
 
-    if (int first >>> 7) = 1 then
-        [| value1; value2 |]
-    else
-        readNextValue [value2; value1] bigint.Zero
+    //TODO use list instead of array?
+    Array.concat [[|component1; component2|]; (Array.skip 1 subidentifiers)]
 
 let decodeUTCTime (str: string) =     
     let read2Digits (str: string) index =
@@ -267,6 +271,8 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String
     | UniversalTag.VisibleString ->  //TODO this is not correct (https://www.itscj.ipsj.or.jp/iso-ir/006.pdf)
         stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> VisibleString
+    | UniversalTag.IA5String ->  //TODO check charset
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> IA5String
     | UniversalTag.UTCTime ->
         stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime
     | UniversalTag.BitString ->
