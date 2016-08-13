@@ -164,8 +164,12 @@ let decodeUTCTime (str: string) =
             let m = read2Digits str 3
             System.TimeSpan(-h, -m, 0)
         | _ -> failwith "Unexpected string"
-                
-    let year = (read2Digits str 0) + 2000 //TODO when to assume 19--/20--?
+
+    // Exact interpretation of year digits in UTCTime 
+    // is not specified, here we assume the range 1951-2050.
+    let year =
+        let last2Digits = (read2Digits str 0)
+        if last2Digits > 50 then 1900 + last2Digits else 2000 + last2Digits
     let month = read2Digits str 2
     let day = read2Digits str 4
     let hour = read2Digits str 6
