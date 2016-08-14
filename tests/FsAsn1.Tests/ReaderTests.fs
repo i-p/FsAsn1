@@ -144,3 +144,113 @@ let ``X.690 8.23.5.4 Example - VisibleString (primitive form)``() =
     ("1A 05 4A6F6E6573") |> shouldReadAsValue (AsnValue.VisibleString("Jones"))
 
 //TODO add additional examples for VisibleString with constructed form and definite/indefinite length (it is not supported now)
+
+
+let replace (value: AsnValue) children =
+    match value with
+    | Sequence(_) -> Sequence(children)
+    | SequenceOf(_) -> SequenceOf(children)
+    | Set(_) -> Set(children)
+    | SetOf(_) -> SetOf(children)
+    | ExplicitTag(_) -> 
+        match children with
+        | [| c |] -> ExplicitTag(c)
+        | _ -> failwith "Not implemented yet"
+    | Integer(_) -> failwith "Not implemented yet"
+    | Null -> failwith "Not implemented yet"
+    | ObjectIdentifier(_) -> failwith "Not implemented yet"
+    | RelativeObjectIdentifier(_) -> failwith "Not implemented yet"
+    | OctetString(_) -> failwith "Not implemented yet"
+    | PrintableString(_) -> failwith "Not implemented yet"
+    | VisibleString(_) -> failwith "Not implemented yet"
+    | IA5String(_) -> failwith "Not implemented yet"
+    | UTF8String(_) -> failwith "Not implemented yet"
+    | T61String(_) -> failwith "Not implemented yet"
+    | Unknown(_) -> failwith "Not implemented yet"
+    | BitString(_) -> failwith "Not implemented yet"
+    | UTCTime(_) -> failwith "Not implemented yet"
+    | Boolean(_) -> failwith "Not implemented yet"
+   
+let toEl (value: AsnValue) = 
+    makeElement(makeHeader(AsnClass.ContextSpecific, Encoding.Primitive, -1, Indefinite), value, 0, None)
+
+let shouldReadAsValueOfType2 typeName value (hexString, types) =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, (fun typeName -> Map.tryFind typeName types))
+    let el = readElement ctx (Some (Map.find typeName types))
+
+    let fSimple el = 
+        toEl el.Value
+
+    let fCollection el children =
+        toEl (replace el.Value children)
+
+    let convertedEl = cataAsn fSimple fCollection el
+
+    equal (typeName, value) (el.SchemaType.Value.TypeName.Value, convertedEl.Value)
+
+let (~&) = toEl
+
+[<Test>]
+let ``X.690 A.1 Example - description of a record structure``() =
+    let recordSchema = parse FsAsn1.SchemaParser.typeAssignments """
+        PersonnelRecord ::= [APPLICATION 0] IMPLICIT SET {
+            name Name,
+            title [0] VisibleString,
+            number  EmployeeNumber,
+            dateOfHire [1] Date,
+            nameOfSpouse  [2] Name,
+            children  [3] IMPLICIT
+                SEQUENCE OF ChildInformation DEFAULT {} }
+        ChildInformation ::= SET { 
+            name  Name,
+            dateOfBirth  [0] Date }
+        Name ::= [APPLICATION 1] IMPLICIT SEQUENCE { 
+            givenName VisibleString,
+            initial  VisibleString,
+            familyName  VisibleString }
+        EmployeeNumber ::= [APPLICATION 2] IMPLICIT INTEGER
+        Date ::= [APPLICATION 3] IMPLICIT VisibleString -- YYYYMMDD """ |> Map.ofList
+
+    let input = 
+        """60 8185 61 10 1A 04 4A6F686E
+                         1A 01 50
+                         1A 05 536D697468
+                   A0 0A 1A 08 4469726563746F72
+                   42 01 33
+                   A1 0A 43 08 3139373130393137
+                   A2 12 61 10 1A 04 4D617279
+                               1A 01 54
+                               1A 05 536D697468
+                   A3 42 31 1F 61 11 1A 05 52616C7068
+                                     1A 01 54
+                                     1A 05 536D697468
+                               A0 0A 43 08 3139353731313131
+                         31 1F 61 11 1A 05 537573616E
+                                     1A 01 42
+                                     1A 05 4A6F6E6573
+                               A0 0A 43 08 3139353930373137
+                    """
+    let makeName givenName initial familyName =
+        AsnValue.Sequence
+            [| &AsnValue.VisibleString givenName;
+               &AsnValue.VisibleString initial;
+               &AsnValue.VisibleString familyName |]
+
+    (input, recordSchema) 
+    |> shouldReadAsValueOfType2 "PersonnelRecord" 
+        (AsnValue.Set
+            [|  &makeName "John" "P" "Smith";
+                &ExplicitTag(&VisibleString("Director"));
+                &Integer(bigint 51);
+                &ExplicitTag(&VisibleString("19710917"));
+                &ExplicitTag(&makeName "Mary" "T" "Smith");
+                &Sequence(
+                    [| &Set
+                        [| &makeName "Ralph" "T" "Smith";
+                           &ExplicitTag(&VisibleString("19571111")) |]
+                       &Set
+                        [| &makeName "Susan" "B" "Jones";
+                           &ExplicitTag(&VisibleString("19590717")) |]
+                    |])
+               |])

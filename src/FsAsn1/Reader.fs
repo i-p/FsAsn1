@@ -243,6 +243,64 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
             else
                 acc |> List.toArray |> Array.rev            
         readNext [] components
+    | Kind(AsnTypeKind.SequenceOfType(_, SequenceOfType.SequenceOfType(ty))) ->
+        let rec readNext acc =
+            if stream.CanRead(1) then
+                let position = stream.Position
+                let header = readHeader stream
+                let ty = resolveType ctx (Some ty)
+                let v = readValue ctx header ty
+
+                readNext (makeElement(header, v, position, ty) :: acc)
+            else
+                acc |> List.toArray |> Array.rev
+        readNext []
+    | Kind(SetType components) ->
+        let toAsnClass (tagClass: TagClass option) =
+            match tagClass with
+            | Some (TagClass.Application) -> AsnClass.Application
+            | Some (TagClass.Private) -> AsnClass.Private
+            | Some (TagClass.Universal) -> AsnClass.Universal
+            | None -> AsnClass.ContextSpecific
+
+        let rec toPair ty =
+            match ty.Kind with
+            | TaggedType(cls, tag, _, _) -> ((toAsnClass cls, tag), ty)
+            | ReferencedType(name) -> 
+                match ctx.LookupType(name) with
+                | Some ty -> toPair ty
+                | None -> failwith "??"
+            | _ -> failwith "?"
+
+        let componentsByTag =
+            components
+            |> List.map (fun ((ComponentType(_,ty,_)) as ct) -> toPair ty)
+            |> Map.ofList
+
+        let rec readNext acc =
+            if stream.CanRead(1) then
+                let position = stream.Position
+                let header = readHeader stream
+                let ty = Map.find (header.Class, header.Tag) componentsByTag
+                let ty = resolveType ctx (Some ty)
+                let v = readValue ctx header ty
+
+                readNext (makeElement(header, v, position, ty) :: acc)
+            else
+                acc |> List.toArray |> Array.rev
+        readNext []
+    | Kind(AsnTypeKind.SetOfType(_, SetOfType.SetOfType(ty))) ->
+        let ty = resolveType ctx (Some ty)
+        let rec readNext acc =
+            if stream.CanRead(1) then
+                let position = stream.Position
+                let header = readHeader stream
+                let v = readValue ctx header ty
+
+                readNext (makeElement(header, v, position, ty) :: acc)
+            else
+                acc |> List.toArray |> Array.rev
+        readNext []
     | Kind(ReferencedType name) ->
         readCollection ctx (ctx.LookupType name)
     | None        
@@ -262,6 +320,7 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
     | UniversalTag.Sequence ->                
         readCollection ctx ty |> Sequence
     | UniversalTag.Set->                
+        //TODO based on ty, create either Set or SetOf
         readCollection ctx ty |> Set
     | UniversalTag.Integer ->                
         stream.ReadBytes(len) |> decodeInteger |> Integer
@@ -303,9 +362,12 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
 and toUniversalTag (ctx: AsnContext) (ty: AsnTypeKind) =
     match ty with
     | AsnTypeKind.AnyType(_) -> None
-    | AsnTypeKind.SequenceType(_) -> Some UniversalTag.Sequence
-    | AsnTypeKind.SequenceOfType(_, _) -> Some UniversalTag.Sequence
-    | AsnTypeKind.SetOfType(_, _) -> Some UniversalTag.Set
+    | AsnTypeKind.SequenceType(_)
+    | AsnTypeKind.SequenceOfType(_, _) -> 
+        Some UniversalTag.Sequence
+    | AsnTypeKind.SetType(_)
+    | AsnTypeKind.SetOfType(_, _) -> 
+        Some UniversalTag.Set
     | AsnTypeKind.ChoiceType(_) -> None
     | AsnTypeKind.BooleanType -> Some UniversalTag.Boolean
     | AsnTypeKind.NullType -> Some UniversalTag.Null
@@ -349,7 +411,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
                 
                 match toUniversalTag ctx ty2.Kind with
                 | Some tag ->
-                    readValueUniversal ctx tag len ty
+                    readValueUniversal ctx tag len (Some ty2)
                 | None ->
                     readValue ctx { h with Class = AsnClass.ContextSpecific } (Some ty2)
             | None ->
