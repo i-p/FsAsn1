@@ -54,33 +54,79 @@ let toConstrainedType c = toType >> constrain c
 let toIndexLineColumn (p: Position) =
     (p.Index, p.Line, p.Column)
 
-let hexStringToBytes (str: string) =    
+let private hexStringToBytes (str: string) =    
     str
     |> Seq.filter (fun c -> c <> ' ' && c <> '|' && c <> '\n' && c <> '\r')
     |> Seq.chunkBySize 2
     |> Seq.map (fun chars -> Convert.ToByte(String(chars), 16))
     |> Seq.toArray
     
-let hexStringStream str = AsnArrayStream(hexStringToBytes str, 0)
+let private hexStringStream str = AsnArrayStream(hexStringToBytes str, 0)
+
+let private replaceChildren (value: AsnValue) children =
+    match value with
+    | Sequence(_) -> Sequence(children)
+    | SequenceOf(_) -> SequenceOf(children)
+    | Set(_) -> Set(children)
+    | SetOf(_) -> SetOf(children)
+    | ExplicitTag(_) ->
+        match children with
+        | [| c |] -> ExplicitTag(c)
+        | _ -> failwithf "Expected one child element for explicit tag, got %d elements." children.Length
+    | Integer(_)
+    | Null
+    | ObjectIdentifier(_)
+    | RelativeObjectIdentifier(_)
+    | OctetString(_)
+    | PrintableString(_)
+    | VisibleString(_)
+    | IA5String(_)
+    | UTF8String(_)
+    | T61String(_)
+    | Unknown(_)
+    | BitString(_)
+    | UTCTime(_)
+    | Boolean(_) ->
+        failwithf "Cannot replace children of a primitive type %A" value
+
+let private toDummyElement (value: AsnValue) =
+    makeElement(makeHeader(AsnClass.ContextSpecific, Encoding.Primitive, -1, Indefinite), value, -1, None)
+
+let (~&) = toDummyElement
+
+let private isDummy (el: AsnElement) = el.Offset = -1 && el.Header.Tag = -1
+
+let private convertToDummy (el: AsnElement) =
+    let fSimple el =
+        toDummyElement el.Value
+    let fCollection el children =
+        toDummyElement (replaceChildren el.Value children)
+
+    cataAsn fSimple fCollection el
 
 let shouldReadAsHeader args hexString =
     let actual = hexString |> hexStringStream |> readHeader
     let expected = makeHeader args
     equal expected actual
 
-let shouldReadAsValue value hexString =
-    let stream = hexString |> hexStringStream
-    let ctx = AsnContext(stream, (fun typeName -> None))    
-    let el = readElement ctx None       
-    equal value el.Value
-
-let shouldReadAsValueOfType typeName value (hexString, types) =
-    let stream = hexString |> hexStringStream
-    let ctx = AsnContext(stream, (fun typeName -> Map.tryFind typeName types))
-    let el = readElement ctx (Some (Map.find typeName types))
-
-    equal (typeName, value) (el.SchemaType.Value.TypeName.Value, el.Value)
-
 let shouldReadAsLength len hexString =
     let stream = hexString |> hexStringStream
     equal len (readLength stream)
+
+let shouldReadAs expected hexString =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, (fun typeName -> None))
+    let actual =
+        let el = readElement ctx None
+        if isDummy expected then convertToDummy el else el
+
+    equal expected actual
+
+let shouldReadAsType typeName expected (hexString, types) =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, (fun typeName -> Map.tryFind typeName types))
+    let el = readElement ctx (Some (Map.find typeName types))
+    let actual =
+        if isDummy expected then convertToDummy el else el
+
+    equal (typeName, expected) (el.SchemaType.Value.TypeName.Value, actual)

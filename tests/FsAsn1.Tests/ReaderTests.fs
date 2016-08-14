@@ -17,35 +17,35 @@ let ``read header of a primitive value with short length``() =
 
 [<Test>]
 let ``read short integer``() = 
-    "02 01 02" |> shouldReadAsValue (Integer(bigint 2))
+    "02 01 02" |> shouldReadAs (&Integer(bigint 2))
 
 [<Test>]
 let ``read long integer``() = 
-    "02 08 5D 90 88 88 52 28 73 30" |> shouldReadAsValue (Integer(bigint.Parse "6742038761248944944"))
+    "02 08 5D 90 88 88 52 28 73 30" |> shouldReadAs (&Integer(bigint.Parse "6742038761248944944"))
 
 [<Test>]
 let ``read smallest integer represented by 2 bytes``() =
-    "02 02 00 80" |> shouldReadAsValue (Integer(bigint(128)))
+    "02 02 00 80" |> shouldReadAs (&Integer(bigint(128)))
 
 [<Test>]
 let ``read negative integer``() =
-    "02 01 80" |> shouldReadAsValue (Integer(bigint(-128)))
+    "02 01 80" |> shouldReadAs (&Integer(bigint(-128)))
 
 [<Test>]
 let ``read object identifier``() = 
-    "06 09 2A 86 48 86 F7 0D 01 01 0B" |> shouldReadAsValue (ObjectIdentifier ([|1;2;840;113549;1;1;11|] |> Array.map bigint))
+    "06 09 2A 86 48 86 F7 0D 01 01 0B" |> shouldReadAs (&ObjectIdentifier ([|1;2;840;113549;1;1;11|] |> Array.map bigint))
 
 [<Test>]
 let ``read printable string``() = 
-    "13 02 55 53 " |> shouldReadAsValue (PrintableString "US")
+    "13 02 55 53 " |> shouldReadAs (&PrintableString "US")
 
 [<Test>]
 let ``read octet string``() = 
-    "04 02 30 00 " |> shouldReadAsValue (OctetString [|0x30uy; 0x00uy|])
+    "04 02 30 00 " |> shouldReadAs (&OctetString [|0x30uy; 0x00uy|])
 
 [<Test>]
 let ``read UTC time``() = 
-    "17 0D 31 36 30  35 31 38 31 31 32 31 34 32 5A" |> shouldReadAsValue (UTCTime(DateTimeOffset(2016, 5, 18, 11, 21, 42, 0, TimeSpan.Zero)))
+    "17 0D 31 36 30 35 31 38 31 31 32 31 34 32 5A" |> shouldReadAs (&UTCTime(DateTimeOffset(2016, 5, 18, 11, 21, 42, 0, TimeSpan.Zero)))
 
 [<Test>]
 let ``read long tag``() =
@@ -61,36 +61,40 @@ let ``X.690 8.1.3.5 Example - long length form``() =
 
 [<Test>]
 let ``X.690 8.2.2 Example - TRUE``() =
-    "01 01 FF" |> shouldReadAsValue (AsnValue.Boolean(AsnBoolean.True(255uy)))
+    "01 01 FF" |> shouldReadAs (&AsnValue.Boolean(AsnBoolean.True(255uy)))
 
 [<Test>]
 let ``X.690 8.6.4.2 Example - Bitstring primitive encoding``() =
     "03 07 040A3B5F291CD0" 
-    |> shouldReadAsValue (AsnValue.BitString(
-                            { Data = [| 0x0Auy; 0x3Buy; 0x5Fuy; 0x29uy; 0x1Cuy; 0xD0uy |];
-                              NumberOfUnusedBits = 4uy } ))
+    |> shouldReadAs (&AsnValue.BitString(
+                         { Data = [| 0x0Auy; 0x3Buy; 0x5Fuy; 0x29uy; 0x1Cuy; 0xD0uy |];
+                           NumberOfUnusedBits = 4uy } ))
 
 //TODO add example of bitstring with constructed encoding (it is not supported now)
 
 [<Test>]
 let ``X.690 8.8.2 Example - NULL``() =
-    "05 00" |> shouldReadAsValue (AsnValue.Null)
-
-
+    "05 00" |> shouldReadAs &AsnValue.Null
 
 [<Test>]
 let ``X.690 8.9.3 Example SEQUENCE``() =
     let schema = parse FsAsn1.SchemaParser.typeAssignments "T ::= SEQUENCE {name IA5String, ok BOOLEAN}" |> Map.ofList
     ("30 0A | 16 05 536D697468 | 01 01 FF", schema)
-    |> shouldReadAsValueOfType "T" (AsnValue.Sequence
-                                        [| { Header = makeHeader(Universal, Primitive, int UniversalTag.IA5String, Definite(5, 1));
-                                             Value = AsnValue.IA5String("Smith");
-                                             Offset = 2;
-                                             SchemaType = Some(toType (FsAsn1.Schema.ReferencedType("IA5String"))) }
-                                           { Header = makeHeader(Universal, Primitive, int UniversalTag.Boolean, Definite(1, 1));
-                                             Value = AsnValue.Boolean(AsnBoolean.True(255uy));
-                                             Offset = 9;
-                                             SchemaType = Some(toType FsAsn1.Schema.BooleanType) } |] )
+    |> shouldReadAsType "T" 
+        {
+            Header = makeHeader(Universal, Constructed, int UniversalTag.Sequence, Definite(10, 1))
+            Value = AsnValue.Sequence 
+                        [| { Header = makeHeader(Universal, Primitive, int UniversalTag.IA5String, Definite(5, 1))
+                             Value = AsnValue.IA5String("Smith")
+                             Offset = 2
+                             SchemaType = Some(toType (FsAsn1.Schema.ReferencedType("IA5String"))) }
+                           { Header = makeHeader(Universal, Primitive, int UniversalTag.Boolean, Definite(1, 1))
+                             Value = AsnValue.Boolean(AsnBoolean.True(255uy))
+                             Offset = 9                            
+                             SchemaType = Some(toType FsAsn1.Schema.BooleanType) } |]
+            Offset = 0
+            SchemaType = Map.tryFind "T" schema
+        }
 
 let schema = FsAsn1.SchemaParser.parseTypeAssignments """
                 Type1 ::= VisibleString
@@ -103,93 +107,70 @@ let schema = FsAsn1.SchemaParser.parseTypeAssignments """
 
 [<Test>]
 let ``X.690 8.14 Example Type1``() =
-    ("1A 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type1" (AsnValue.VisibleString("Jones"))
+    ("1A 05 4A6F6E6573", schema) 
+    |> shouldReadAsType "Type1" 
+        { Header = makeHeader(Universal, Primitive, int UniversalTag.VisibleString, Definite(5, 1))
+          Value = AsnValue.VisibleString("Jones")
+          Offset = 0
+          SchemaType = Map.tryFind "Type1" schema }
 
 [<Test>]
 let ``X.690 8.14 Example Type2``() =
-    ("43 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type2" (AsnValue.VisibleString("Jones"))
+    ("43 05 4A6F6E6573", schema) 
+    |> shouldReadAsType "Type2" 
+        { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
+          Value = AsnValue.VisibleString("Jones")
+          Offset = 0
+          SchemaType = Map.tryFind "Type2" schema }
 
 [<Test>]
 let ``X.690 8.14 Example Type3``() =
     ("A2 07 43 05 4A6F6E6573", schema)
-    |> shouldReadAsValueOfType "Type3" (AsnValue.ExplicitTag
-                                            { Header = makeHeader(Application, Primitive, 3, Definite(5, 1));
-                                              Value = AsnValue.VisibleString("Jones");
-                                              Offset = 2;
-                                              SchemaType = Map.tryFind "Type2" schema } )
+    |> shouldReadAsType "Type3" 
+        { Header = makeHeader(ContextSpecific, Constructed, 2, Definite(7, 1))
+          Value = AsnValue.ExplicitTag
+                    { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
+                      Value = AsnValue.VisibleString("Jones")
+                      Offset = 2
+                      SchemaType = Map.tryFind "Type2" schema }
+          Offset = 0
+          SchemaType = Map.tryFind "Type3" schema }
 
 [<Test>]
 let ``X.690 8.14 Example Type4``() =
     ("67 07 43 05 4A6F6E6573", schema)
-    |> shouldReadAsValueOfType "Type4" (AsnValue.ExplicitTag
-                                            { Header = makeHeader(Application, Primitive, 3, Definite(5, 1));
-                                              Value = AsnValue.VisibleString("Jones");
-                                              Offset = 2;
-                                              SchemaType = Map.tryFind "Type2" schema } )
+    |> shouldReadAsType "Type4" 
+         { Header = makeHeader(Application, Constructed, 7, Definite(7, 1))
+           Value = AsnValue.ExplicitTag
+                    { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
+                      Value = AsnValue.VisibleString("Jones")
+                      Offset = 2
+                      SchemaType = Map.tryFind "Type2" schema }
+           Offset = 0
+           SchemaType = Map.tryFind "Type4" schema }
 
 [<Test>]
 let ``X.690 8.14 Example Type5``() =
-    ("82 05 4A6F6E6573", schema) |> shouldReadAsValueOfType "Type5" (AsnValue.VisibleString("Jones"))
+    ("82 05 4A6F6E6573", schema) 
+    |> shouldReadAsType "Type5" 
+        { Header = makeHeader(ContextSpecific, Primitive, 2, Definite(5, 1))
+          Value = AsnValue.VisibleString("Jones")
+          Offset = 0
+          SchemaType = Map.tryFind "Type5" schema }
 
 [<Test>]
 let ``X.690 8.19.5 Example OBJECT IDENTIFIER``() =
-    ("06 03 883703") |> shouldReadAsValue (AsnValue.ObjectIdentifier([|bigint(2); bigint(999); bigint(3)|]))
+    ("06 03 883703") |> shouldReadAs &(AsnValue.ObjectIdentifier([|bigint(2); bigint(999); bigint(3)|]))
 
 [<Test>]
 let ``X.690 8.20.5 Example - Relative object identifier``() =
-    ("0D 04 C27B0302") |> shouldReadAsValue (AsnValue.RelativeObjectIdentifier([|bigint(8571); bigint(3); bigint(2)|]))
+    ("0D 04 C27B0302") |> shouldReadAs &(AsnValue.RelativeObjectIdentifier([|bigint(8571); bigint(3); bigint(2)|]))
 
 [<Test>]
 let ``X.690 8.23.5.4 Example - VisibleString (primitive form)``() =
-    ("1A 05 4A6F6E6573") |> shouldReadAsValue (AsnValue.VisibleString("Jones"))
+    ("1A 05 4A6F6E6573") |> shouldReadAs &(AsnValue.VisibleString("Jones"))
 
 //TODO add additional examples for VisibleString with constructed form and definite/indefinite length (it is not supported now)
-
-
-let replace (value: AsnValue) children =
-    match value with
-    | Sequence(_) -> Sequence(children)
-    | SequenceOf(_) -> SequenceOf(children)
-    | Set(_) -> Set(children)
-    | SetOf(_) -> SetOf(children)
-    | ExplicitTag(_) -> 
-        match children with
-        | [| c |] -> ExplicitTag(c)
-        | _ -> failwith "Not implemented yet"
-    | Integer(_) -> failwith "Not implemented yet"
-    | Null -> failwith "Not implemented yet"
-    | ObjectIdentifier(_) -> failwith "Not implemented yet"
-    | RelativeObjectIdentifier(_) -> failwith "Not implemented yet"
-    | OctetString(_) -> failwith "Not implemented yet"
-    | PrintableString(_) -> failwith "Not implemented yet"
-    | VisibleString(_) -> failwith "Not implemented yet"
-    | IA5String(_) -> failwith "Not implemented yet"
-    | UTF8String(_) -> failwith "Not implemented yet"
-    | T61String(_) -> failwith "Not implemented yet"
-    | Unknown(_) -> failwith "Not implemented yet"
-    | BitString(_) -> failwith "Not implemented yet"
-    | UTCTime(_) -> failwith "Not implemented yet"
-    | Boolean(_) -> failwith "Not implemented yet"
-   
-let toEl (value: AsnValue) = 
-    makeElement(makeHeader(AsnClass.ContextSpecific, Encoding.Primitive, -1, Indefinite), value, 0, None)
-
-let shouldReadAsValueOfType2 typeName value (hexString, types) =
-    let stream = hexString |> hexStringStream
-    let ctx = AsnContext(stream, (fun typeName -> Map.tryFind typeName types))
-    let el = readElement ctx (Some (Map.find typeName types))
-
-    let fSimple el = 
-        toEl el.Value
-
-    let fCollection el children =
-        toEl (replace el.Value children)
-
-    let convertedEl = cataAsn fSimple fCollection el
-
-    equal (typeName, value) (el.SchemaType.Value.TypeName.Value, convertedEl.Value)
-
-let (~&) = toEl
 
 [<Test>]
 let ``X.690 A.1 Example - description of a record structure``() =
@@ -237,9 +218,9 @@ let ``X.690 A.1 Example - description of a record structure``() =
                &AsnValue.VisibleString initial;
                &AsnValue.VisibleString familyName |]
 
-    (input, recordSchema) 
-    |> shouldReadAsValueOfType2 "PersonnelRecord" 
-        (AsnValue.Set
+    (input, recordSchema)
+    |> shouldReadAsType "PersonnelRecord" 
+        (&AsnValue.Set
             [|  &makeName "John" "P" "Smith";
                 &ExplicitTag(&VisibleString("Director"));
                 &Integer(bigint 51);
