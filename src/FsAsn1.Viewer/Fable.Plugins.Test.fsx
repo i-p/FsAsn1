@@ -62,6 +62,8 @@ type BigIntegerPlugin() =
                     bigIntCall()
                 | "get_Zero", [] ->
                     bigIntProp "zero"                    
+                | "get_One", [] ->
+                    bigIntProp "one"
                 | _ ->
                     None
             | "Microsoft.FSharp.Core.Operators" ->
@@ -74,6 +76,14 @@ type BigIntegerPlugin() =
                     [Type (EntFullName("System.Numerics.BigInteger")); 
                      Type (EntFullName("System.Numerics.BigInteger"))] ->
                     icall "multiply"
+                | "op_Subtraction", 
+                    [Type (EntFullName("System.Numerics.BigInteger")); 
+                     Type (EntFullName("System.Numerics.BigInteger"))] ->
+                    icall "subtract"
+                | "op_LessThan", 
+                    [Type (EntFullName("System.Numerics.BigInteger")); 
+                     Type (EntFullName("System.Numerics.BigInteger"))] ->
+                    emit info "$0.compare($1) < 0" info.args |> Some
                 | _ -> None
             | _ -> None
 
