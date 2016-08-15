@@ -311,3 +311,25 @@ let ``parse component with SEQUENCE OF type`` () =
                     (None, SequenceOfType.SequenceOfType(referencedType("ChildInformation")))) |> toType)) |> toType,
             Some(Default(SequenceOfValue([])))))
 
+[<Test>]
+let ``parse module definition``() =
+    "PKIX1Explicit88 { iso(1) identified-organization(3) dod(6) internet(1)
+                       security(5) mechanisms(5) pkix(7) id-mod(0) id-pkix1-explicit(18) }
+     DEFINITIONS EXPLICIT TAGS ::=
+     BEGIN
+     END"
+    |> shouldParseAs moduleDefinition
+        { Identifier = "PKIX1Explicit88"
+          Oid = [| Some "iso", Some (bigint 1)
+                   Some "identified-organization", Some (bigint 3)
+                   Some "dod", Some (bigint 6)
+                   Some "internet", Some (bigint 1)
+                   Some "security", Some (bigint 5)
+                   Some "mechanisms", Some (bigint 5)
+                   Some "pkix", Some (bigint 7)
+                   Some "id-mod", Some (bigint 0)
+                   Some "id-pkix1-explicit", Some (bigint 18) |]
+          TagDefault = Some ExplicitTags
+          ExtensibilityImplied = false
+          TypeAssignments = Map.empty
+          ValueAssignments = Map.empty }

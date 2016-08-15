@@ -35,6 +35,8 @@ let typeReference =
         "typereference"
         .>> spaces
 
+let moduleReference = typeReference
+
 let identifier = 
     many1Satisfy2L 
         isAsciiLower 
@@ -200,6 +202,34 @@ ptypeRef :=
             Constraint = cs })
                 
 let typeAssignments = many typeAssignment
+
+
+let tagDefault =
+    opt (case "EXPLICIT TAGS" ExplicitTags
+         <|> case "IMPLICIT TAGS" ImplicitTags
+         <|> case "AUTOMATIC TAGS" AutomaticTags)
+
+let extensionDefault =
+    (str_ws "EXTENSIBILITY IMPLIED" >>% true) <|> preturn false
+
+// TODO it should be unsigned number
+let definitiveOidComponent =
+    inParentheses signedNumber |>> (fun x -> (None, Some x))
+    <|> ((identifier |>> Some) .>>. opt (inParentheses signedNumber))
+
+let moduleDefinition = 
+    pipe4
+        moduleReference 
+        (inBraces (many1 definitiveOidComponent) .>> str_ws "DEFINITIONS")
+        tagDefault
+        (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN" .>> str_ws "END")
+        (fun ident oid tagDefault extDefault ->
+            { Identifier = ident 
+              Oid = Array.ofList oid
+              TagDefault = tagDefault
+              ExtensibilityImplied = extDefault
+              TypeAssignments = Map.empty
+              ValueAssignments = Map.empty } )
 
 let parse p str =
     match runParserOnString p { Offset = 0; UseRanges = true } "" str with

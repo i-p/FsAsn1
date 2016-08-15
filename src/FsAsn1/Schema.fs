@@ -63,3 +63,15 @@ and Constraint =
     | SingleValue of Value
     | ValueRange of LowerEndpoint * UpperEndpoint
     | SizeConstraint of Constraint
+and TagDefault =
+    | ExplicitTags
+    | ImplicitTags
+    | AutomaticTags
+and ModuleDefinition =
+    { Identifier: string
+      Oid: (string option * bigint option) []
+      TagDefault: TagDefault option
+      ExtensibilityImplied: bool
+      TypeAssignments: Map<string, AsnType>
+      ValueAssignments: Map<string, Value> }
+
