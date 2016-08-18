@@ -228,32 +228,33 @@ let definitiveOidComponent =
     inParentheses signedNumber |>> (fun x -> (None, Some x))
     <|> ((identifier |>> Some) .>>. opt (inParentheses signedNumber))
 
-let moduleDefinition = 
+let moduleDefinitionBegin = 
     pipe4
         moduleReference 
         (inBraces (many1 definitiveOidComponent) .>> str_ws "DEFINITIONS")
         tagDefault
-        (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN" .>> str_ws "END")
+        (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN")
         (fun ident oid tagDefault extDefault ->
             { Identifier = ident 
               Oid = Array.ofList oid
               TagDefault = tagDefault
               ExtensibilityImplied = extDefault
               TypeAssignments = Map.empty
-              ValueAssignments = Map.empty } )
+              ValueAssignments = Map.empty
+              Range = None } )
 
-let parse p str =
-    match runParserOnString p { Offset = 0; UseRanges = true } "" str with
+let parseSubstring p str start count =
+    match runParserOnSubstring p { Offset = 0; UseRanges = true } "" str start count with
     | Success(result, _, _) -> result
     | Failure(errorMsg, _, _) -> failwith errorMsg
-    
-let parseTypeAssignments str = parse typeAssignments str
-let parseTypeAssignmentsRfc (str: string) = 
-    let totalLength = str.Length
 
+let parse p str = 
+    parseSubstring p str 0 str.Length
+
+let parseTypeAssignmentsInRange (str: string) fromIndex toIndex =     
     let isNewline c = c = '\r' || c = '\n'
     let isWhitespace c = c = ' ' || isNewline c
-
+    
     let previousIndex (str: string) startIndex (f: char -> bool) =        
         let mutable index = startIndex
         while index >= 0 && not (f str.[index]) do
@@ -272,20 +273,53 @@ let parseTypeAssignmentsRfc (str: string) =
                 (n, {ty with Range = Some (s, defaultArg newEnd s) })
             | None -> (n, ty)
 
-        if index = -1 then
+        if index = -1 || index >= toIndex then
             acc
         else           
             let recurse = parseNext (index + "::=".Length)
             let start = defaultArg (previousIndex str index isNewline) 0
             
-            let count = totalLength - start
-
+            let count = toIndex - start
+            
             match (runParserOnSubstring typeAssignment { Offset = start; UseRanges = true } "" str start count) with
             | Success(result, _, _) -> 
                 recurse (stripTrailingWhitespace result :: acc)
-            | Failure(errorMsg, _, _) -> 
+            | Failure(errorMsg, _, _) ->                
                 recurse acc
          
-    parseNext 0 [] |> List.rev
+    parseNext fromIndex [] |> List.rev
 
-    
+let parseTypeAssignments str = parseTypeAssignmentsInRange str 0 (str.Length - 1)
+
+let indexOf (value: string) (str: string) (startIndex: int) =
+    match str.IndexOf(value, startIndex) with
+    | -1 -> None
+    | i -> Some i
+
+let lastIndexOf (value: string) (str: string) (startIndex: int) =
+    match str.LastIndexOf(value, startIndex) with
+    | -1 -> None
+    | i -> Some i
+
+let lastIndexOfAny (anyOf: char[]) (str: string) (startIndex: int) =
+    match str.LastIndexOfAny(anyOf, startIndex) with
+    | -1 -> None
+    | i -> Some i
+
+let parseModuleDefinition (str: string) (start: int) =
+    indexOf "DEFINITIONS" str start
+    |> Option.bind(lastIndexOf "{" str)
+    |> Option.bind(lastIndexOfAny [| '\r'; '\n' |] str)
+    |> Option.map(fun lineStart -> 
+                
+        let (startPos, mdb, endPos) = 
+            parseSubstring (spaces >>.  tuple3 getPosition moduleDefinitionBegin getPosition) str lineStart (str.Length - lineStart)
+
+        //TODO check that there are only spaces between this position and previous line break
+        let endIndex = str.IndexOf("END", lineStart + int startPos.Index)
+
+        let types = parseTypeAssignmentsInRange str (lineStart + int startPos.Index) endIndex
+
+        { mdb with 
+            TypeAssignments = Map.ofList types
+            Range = Some(lineStart + int startPos.Index, endIndex + "END".Length) })

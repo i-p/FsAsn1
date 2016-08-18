@@ -320,13 +320,12 @@ let ``parse component with SEQUENCE OF type`` () =
             Some(Default(SequenceOfValue([])))))
 
 [<Test>]
-let ``parse module definition``() =
+let ``parse start of module definition``() =
     "PKIX1Explicit88 { iso(1) identified-organization(3) dod(6) internet(1)
                        security(5) mechanisms(5) pkix(7) id-mod(0) id-pkix1-explicit(18) }
-     DEFINITIONS EXPLICIT TAGS ::=
-     BEGIN
-     END"
-    |> shouldParseAs moduleDefinition
+     DEFINITIONS EXPLICIT TAGS ::=     
+     BEGIN"
+    |> shouldParseAs moduleDefinitionBegin
         { Identifier = "PKIX1Explicit88"
           Oid = [| Some "iso", Some (bigint 1)
                    Some "identified-organization", Some (bigint 3)
@@ -340,4 +339,24 @@ let ``parse module definition``() =
           TagDefault = Some ExplicitTags
           ExtensibilityImplied = false
           TypeAssignments = Map.empty
-          ValueAssignments = Map.empty }
+          ValueAssignments = Map.empty
+          Range = None }
+
+[<Test>]
+let ``parse first module definition from RFC 5250``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
+    let md = parseModuleDefinition str 0
+
+    equal 82 md.Value.TypeAssignments.Count
+    equal (312805, 341179) md.Value.Range.Value
+    // TODO 90 value assignments
+
+[<Test>]
+let ``parse second module definition from RFC 5250``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
+    let md = parseModuleDefinition str 341179
+    
+    equal 47 md.Value.TypeAssignments.Count
+    equal (341258, 354788) md.Value.Range.Value
+
+    // TODO 38 value assignments
