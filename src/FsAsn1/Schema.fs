@@ -63,6 +63,7 @@ and Constraint =
     | SingleValue of Value
     | ValueRange of LowerEndpoint * UpperEndpoint
     | SizeConstraint of Constraint
+    | Union of Constraint * Constraint
 and TagDefault =
     | ExplicitTags
     | ImplicitTags

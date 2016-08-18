@@ -110,9 +110,20 @@ let psingleValue = value |>> SingleValue
 let pvalueRange = lowerEndpoint .>> pstring ".." .>>. upperEndpoint |>> ValueRange
 let psizeConstraint = (str_ws "SIZE" >>. pconstraint) |>> SizeConstraint
 
+let pconstraintElements, pconstraintElementsRef =  createParserForwardedToRef<Constraint, UserState>()
+
 // singeValue is a prefix of valueRange, so it must come after the valueRange
+let simpleElement = psizeConstraint <|> (attempt pvalueRange) <|> psingleValue
+
+pconstraintElementsRef :=
+    (pipe2 simpleElement (opt (str_ws "|" >>. pconstraintElements)) 
+        (fun c1 c2 ->
+            match c2 with
+            | Some(c2') -> Union(c1, c2')
+            | None -> c1 ))
+
 pconstraintRef := 
-    inParentheses (psizeConstraint <|> (attempt pvalueRange) <|> psingleValue)
+    inParentheses pconstraintElements
 
 definedValueRef := valueReference |>> ReferencedValue
 let referencedValue = definedValue

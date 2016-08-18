@@ -294,6 +294,14 @@ let ``parse size constraint with value range (IntegerValue..NamedValue)`` () =
                  UpperEndpoint.Value(ReferencedValue("a-named-value")))))
 
 [<Test>]
+let ``parse union of named value constraints`` () =
+    "( a-named-value-1 | a-named-value-2 )" 
+    |> shouldParseAs pconstraint 
+        (Union
+            (SingleValue(ReferencedValue("a-named-value-1")),
+             SingleValue(ReferencedValue("a-named-value-2"))))
+
+[<Test>]
 let ``parse SET``() =
     "SET { name  Name, dateOfBirth  [0] Date }"
     |> shouldParseAs ptypeKind 
