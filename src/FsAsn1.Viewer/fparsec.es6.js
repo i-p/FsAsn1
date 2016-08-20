@@ -52,6 +52,7 @@ export default {
     eof: parse.eof,
 	fail: (msg) => parse.never(msg),
     attempt: p => parse.attempt(p),
+    preturn: parse.of,
     choice,
     skipManyTill: (p, endp) => parse.sequence(parse.eager(parse.manyTill(p, endp)), endp, parse.of(null)),
     //TODO false not supported
@@ -106,11 +107,22 @@ export default {
 	op_DotGreaterGreaterDot: (p1, p2) => parse.bind(p1, x => parse.bind(p2, y => parse.of([x,y]))),
 	op_GreaterGreaterPercent: (p1, v) => parse.next(p1, parse.of(v)),
 	between: lang.between,
-	pipe3: (p1,p2,p3,f) =>
+	pipe4: (p1,p2,p3,p4,f) =>
 		parse.bind(p1, 
 			x => parse.bind(p2, 
 				y => parse.bind(p3, 
-					z => parse.of(f(x)(y)(z))))),
+					z => parse.bind(p4,
+                        w => parse.of(f(x)(y)(z)(w)))))),
+    pipe3: (p1,p2,p3,f) =>
+        parse.bind(p1, 
+            x => parse.bind(p2, 
+                y => parse.bind(p3, 
+                    z => parse.of(f(x)(y)(z))))),
+	tuple3: (p1,p2,p3,f) =>
+	    parse.bind(p1, 
+            x => parse.bind(p2, 
+                y => parse.bind(p3, 
+                    z => parse.of([x, y, z])))),
 	pipe2: (p1, p2, f) =>
 		parse.bind(p1, x => parse.bind(p2, y => parse.of(f(x)(y)))),
 	createParserForwardedToRef: () =>

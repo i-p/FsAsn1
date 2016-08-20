@@ -85,6 +85,15 @@ type BigIntegerPlugin() =
                      Type (EntFullName("System.Numerics.BigInteger"))] ->
                     emit info "$0.compare($1) < 0" info.args |> Some
                 | _ -> None
+            | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
+                match info.methodName with
+                | "FromInt32" ->
+                    bigIntCall()
+                | "FromZero" ->
+                    bigIntProp "zero"
+                | "FromOne" ->
+                    bigIntProp "one"
+                | _ -> None
             | _ -> None
 
 type FParsecPlugin() =
@@ -159,8 +168,11 @@ type FParsecPlugin() =
                 | "op_DotGreaterGreaterDot"
                 | "op_GreaterGreaterPercent"
                 | "between"
+                | "pipe4"
                 | "pipe3"
                 | "pipe2"
+                | "preturn"
+                | "tuple3"
                 | "createParserForwardedToRef" ->
                     forward()
                 | _ -> 
@@ -224,5 +236,14 @@ type ViewerPlugin() =
                      emit "parseInt($0,$1)"
                 | _ ->
                     None
+            | "System.IO.File" ->
+                match info.methodName, info.args with
+                | "ReadAllText", [Type (Fable.Type.String _)] ->
+                    Fable.Util.makeCall
+                        com
+                        info.range
+                        info.returnType
+                        (Fable.Util.ImportCall("fs", "default", Some "readFileSync", false, info.args)) |> Some                    
+                | _ -> None
             | _ ->
                 None
