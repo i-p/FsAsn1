@@ -387,8 +387,8 @@ let ``parse first module definition from RFC 5250``() =
     let md = parseModuleDefinition str 0
 
     equal 82 md.Value.TypeAssignments.Count
-    equal (312805, 341179) md.Value.Range.Value
-    // TODO 90 value assignments
+    equal 90 md.Value.ValueAssignments.Count
+    equal (312805, 341179) md.Value.Range.Value    
 
 [<Test>]
 let ``parse second module definition from RFC 5250``() =
@@ -396,6 +396,5 @@ let ``parse second module definition from RFC 5250``() =
     let md = parseModuleDefinition str 341179
     
     equal 47 md.Value.TypeAssignments.Count
-    equal (341258, 354788) md.Value.Range.Value
-
-    // TODO 38 value assignments
+    equal 38 md.Value.ValueAssignments.Count
+    equal (341258, 354788) md.Value.Range.Value    

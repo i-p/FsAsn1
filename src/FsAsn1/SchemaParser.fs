@@ -265,7 +265,7 @@ let parseSubstring p str start count =
 let parse p str = 
     parseSubstring p str 0 str.Length
 
-let parseTypeAssignmentsInRange (str: string) fromIndex toIndex =     
+let parseAssignmentsInRange (str: string) fromIndex toIndex =     
     let isNewline c = c = '\r' || c = '\n'
     let isWhitespace c = c = ' ' || isNewline c
     
@@ -276,19 +276,19 @@ let parseTypeAssignmentsInRange (str: string) fromIndex toIndex =
         
         if index = -1 then None else Some index
 
-    let rec parseNext (fromIndex: int) acc =         
+    let rec parseNext (fromIndex: int) acc acc2 =         
         let mutable index = str.IndexOf("::=", fromIndex)
         
-        let stripTrailingWhitespace (n: string, ty: AsnType) =            
+        let trimRangeEnd (ty: AsnType) =            
             match ty.Range with
             | Some(s, e) ->
                 let newEnd = previousIndex str e (isWhitespace >> not)
                 
-                (n, {ty with Range = Some (s, defaultArg newEnd s) })
-            | None -> (n, ty)
+                {ty with Range = Some (s, defaultArg newEnd s) }
+            | None -> ty
 
         if index = -1 || index >= toIndex then
-            acc
+            acc, acc2
         else           
             let recurse = parseNext (index + "::=".Length)
             let start = defaultArg (previousIndex str index isNewline) 0
@@ -296,14 +296,20 @@ let parseTypeAssignmentsInRange (str: string) fromIndex toIndex =
             let count = toIndex - start
             
             match (runParserOnSubstring typeAssignment { Offset = start; UseRanges = true } "" str start count) with
-            | Success(result, _, _) -> 
-                recurse (stripTrailingWhitespace result :: acc)
+            | Success((n, ty), _, _) -> 
+                recurse ((n, trimRangeEnd ty) :: acc) acc2
             | Failure(errorMsg, _, _) ->                
-                recurse acc
+                match (runParserOnSubstring valueAssignment { Offset = start; UseRanges = true } "" str start count) with
+                | Success((n, ty, value), _, _) -> 
+                    recurse acc ((n, trimRangeEnd ty, value) :: acc2)
+                | Failure(errorMsg, _, _) ->
+                    recurse acc acc2
          
-    parseNext fromIndex [] |> List.rev
+    let types, values = parseNext fromIndex [] []
 
-let parseTypeAssignments str = parseTypeAssignmentsInRange str 0 (str.Length - 1)
+    (types |> List.rev, values |> List.rev)
+
+let parseAssignments str = parseAssignmentsInRange str 0 (str.Length - 1)
 
 let indexOf (value: string) (str: string) (startIndex: int) =
     match str.IndexOf(value, startIndex) with
@@ -332,8 +338,9 @@ let parseModuleDefinition (str: string) (start: int) =
         //TODO check that there are only spaces between this position and previous line break
         let endIndex = str.IndexOf("END", lineStart + int startPos.Index)
 
-        let types = parseTypeAssignmentsInRange str (lineStart + int startPos.Index) endIndex
+        let types, values = parseAssignmentsInRange str (lineStart + int startPos.Index) endIndex
 
         { mdb with 
             TypeAssignments = Map.ofList types
+            ValueAssignments = values |> List.map (fun (n, ty, v) -> (n, (ty, v))) |> Map.ofList
             Range = Some(lineStart + int startPos.Index, endIndex + "END".Length) })

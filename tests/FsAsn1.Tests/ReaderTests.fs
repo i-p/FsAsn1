@@ -96,14 +96,14 @@ let ``X.690 8.9.3 Example SEQUENCE``() =
             SchemaType = Map.tryFind "T" schema
         }
 
-let schema = FsAsn1.SchemaParser.parseTypeAssignments """
+let schema = FsAsn1.SchemaParser.parseAssignments """
                 Type1 ::= VisibleString
                 Type2 ::= [APPLICATION 3] IMPLICIT Type1
                 Type3 ::= [2] Type2
                 Type4 ::= [APPLICATION 7] IMPLICIT Type3
                 Type5 ::= [2] IMPLICIT Type2 
                 """ 
-                |> Map.ofList
+                |> fst |> Map.ofList
 
 [<Test>]
 let ``X.690 8.14 Example Type1``() =

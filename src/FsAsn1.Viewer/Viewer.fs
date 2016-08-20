@@ -377,7 +377,7 @@ xhr.onreadystatechange <- (fun (e) ->
 
     console.time("parsing")
 
-    let types = parseTypeAssignments rfcSchema |> Map.ofSeq
+    let types = parseAssignments rfcSchema |> fst |> Map.ofSeq
     window?rfc <- types
 
     console.timeEnd("parsing")

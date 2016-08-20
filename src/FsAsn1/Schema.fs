@@ -75,6 +75,6 @@ and ModuleDefinition =
       TagDefault: TagDefault option
       ExtensibilityImplied: bool
       TypeAssignments: Map<string, AsnType>
-      ValueAssignments: Map<string, Value>
+      ValueAssignments: Map<string, AsnType * Value>
       Range: (int * int) option }
 
