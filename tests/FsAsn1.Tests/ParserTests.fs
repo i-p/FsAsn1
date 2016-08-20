@@ -75,6 +75,31 @@ let ``parse named number list``() =
     equal n1 ("v1", SignedNumber(bigint.Parse("1")))
     equal n2 ("v2", SignedNumber(bigint.Parse("2")))
     equal n3 ("v3", SignedNumber(bigint.Parse("3")))
+   
+[<Test>]
+let ``parse object identifier value - relative to referenced``() =
+    @"{ id-pkix 1 }" 
+    |> shouldParseAs oidValue
+        (OidValue([(Some "id-pkix", None); (None, Some(bigint 1))]))
+
+[<Test>]
+let ``parse object identifier value - name and number form``() =
+    @"{ joint-iso-ccitt(2) ds(5) 4 }" 
+    |> shouldParseAs oidValue
+        (OidValue([(Some "joint-iso-ccitt", Some 2I); (Some "ds", Some 5I); (None, Some 4I)]))
+
+[<Test>]
+let ``parse object identifier value - number form``() =
+    @"{ 0 9 2342 19200300 100 1 25 }"
+    |> shouldParseAs oidValue
+        (OidValue(
+            [(None, Some 0I)
+             (None, Some 9I) 
+             (None, Some 2342I)
+             (None, Some 19200300I)
+             (None, Some 100I)
+             (None, Some 1I)
+             (None, Some 25I)]))
     
 [<Test>]
 let ``parse comment ended by a newline`` () =
@@ -172,6 +197,20 @@ let ``parse type assignments`` () =
     |> shouldParseAs typeAssignments
         [ ("Certificate", SequenceType([]) |> toNamedType "Certificate");
           ("TBSCertificate", SequenceType([]) |> toNamedType "TBSCertificate") ]
+
+[<Test>]
+let ``parse value assignment - OBJECT IDENTIFIER``() =
+    @"id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }"
+    |> shouldParseAs valueAssignment
+        ("id-pe", ObjectIdentifierType |> toType, 
+            OidValue([(Some "id-pkix", None); (None, Some 1I)]))
+       
+[<Test>]
+let ``parse value assignment - referenced type``() =
+    @"id-at-name AttributeType ::= { id-at 41 }"
+    |> shouldParseAs valueAssignment
+        ("id-at-name", ReferencedType("AttributeType") |> toType, 
+            OidValue([(Some "id-at", None); (None, Some 41I)]))
 
 [<Test>]
 let ``parse sequence type with comments between components`` () =

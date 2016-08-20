@@ -43,6 +43,7 @@ and Value =
     | BooleanValue of bool
     | IntegerValue of bigint
     | SequenceOfValue of Value list
+    | OidValue of (string option * bigint option) list
 and NamedNumberValue = 
     | SignedNumber of bigint
     | DefinedValue of Value

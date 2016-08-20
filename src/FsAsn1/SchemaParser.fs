@@ -44,7 +44,11 @@ let identifier =
         "identifier"
         .>> spaces
 
-
+let identifierNoSpace = 
+    many1Satisfy2L 
+        isAsciiLower 
+        (fun c -> isAsciiLetter c || isDigit c || c = '-') 
+        "identifier"        
 
 let ptype, ptypeRef = createParserForwardedToRef<AsnType, UserState>()
 let definedValue, definedValueRef = createParserForwardedToRef<Value, UserState>()
@@ -96,6 +100,14 @@ let booleanValue =
 
 let integerValue = signedNumber |>> IntegerValue
 
+// TODO it should be unsigned number
+let oidComponent =
+    (signedNumber) |>> (fun x -> (None, Some x))
+    <|> ((identifierNoSpace |>> Some) .>>. opt (inParentheses signedNumber))
+
+// X.680 32.11 an object identifier value shall contain at least two arcs
+let oidValue = inBraces (pipe3 (oidComponent .>> spaces) (oidComponent .>> spaces) (many (oidComponent .>> spaces)) (fun c1 c2 rest -> c1 :: c2 :: rest |> OidValue))
+
 let namedType = identifier .>>. ptype
 let valueReference = identifier
 
@@ -130,7 +142,8 @@ let referencedValue = definedValue
 
 let sequenceOfValue = inBraces (sepBy value (str_ws ",")) |>> SequenceOfValue
 
-valueRef := booleanValue <|> integerValue <|> referencedValue <|> sequenceOfValue
+// oidValue and sequenceOfValue share prefix: "{ integerValue"
+valueRef := booleanValue <|> integerValue <|> referencedValue <|> (attempt oidValue) <|> sequenceOfValue 
 
 
 let namedTypeModifier = 
@@ -184,6 +197,12 @@ let typeAssignment =
                    .>>. ptype)
     |>> fun (r, (n, ty)) -> (n, { ty with TypeName = Some n; Range = r })
 
+let valueAssignment = 
+    spaces 
+    >>. withRange ((attempt (valueReference .>>. (ptype .>> spaces) .>> str_ws "::=")) 
+                   .>>. value)
+    |>> fun (r, ((n, ty), v)) -> (n, { ty with Range = r }, v)
+
 //TODO choice doesn't work in JS yet
 // sequenceOfType must be before sequenceType
 // setOfType must be before setType
@@ -223,20 +242,15 @@ let tagDefault =
 let extensionDefault =
     (str_ws "EXTENSIBILITY IMPLIED" >>% true) <|> preturn false
 
-// TODO it should be unsigned number
-let definitiveOidComponent =
-    inParentheses signedNumber |>> (fun x -> (None, Some x))
-    <|> ((identifier |>> Some) .>>. opt (inParentheses signedNumber))
-
 let moduleDefinitionBegin = 
     pipe4
         moduleReference 
-        (inBraces (many1 definitiveOidComponent) .>> str_ws "DEFINITIONS")
+        (oidValue .>> str_ws "DEFINITIONS")
         tagDefault
         (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN")
-        (fun ident oid tagDefault extDefault ->
+        (fun ident (OidValue(cs)) tagDefault extDefault ->
             { Identifier = ident 
-              Oid = Array.ofList oid
+              Oid = Array.ofList cs
               TagDefault = tagDefault
               ExtensibilityImplied = extDefault
               TypeAssignments = Map.empty
