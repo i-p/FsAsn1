@@ -192,8 +192,8 @@ let nameOfType (ty: AsnType) =
     | ReferencedType(n) -> Some n
     | _ -> defaultArg (Some ty.TypeName) None
 
-let componentName (ty: AsnType option) parentTy =
-    let ty = Core.Option.map resolveType ty
+let componentName (ty: AsnType) parentTy =
+    let ty = resolveType ty
     match parentTy with
     | None -> None
     | Kind (SequenceType cs) ->
@@ -214,7 +214,8 @@ let typeNameEl (ty: AsnType option) =
         el)
 
 let componentNameEl (ty: AsnType option) (parentTy: AsnType option) =
-    componentName ty parentTy
+    ty
+    |> Core.Option.bind (fun t -> componentName t parentTy)
     |> Core.Option.map (fun n ->
         let el = document.createElement("span")
         el.textContent <- n

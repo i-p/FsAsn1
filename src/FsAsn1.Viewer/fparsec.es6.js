@@ -119,7 +119,7 @@ export default {
                 y => parse.bind(p3, 
                     z => parse.of(f(x)(y)(z))))),
 	tuple3: (p1,p2,p3,f) =>
-	    parse.bind(p1, 
+        parse.bind(p1, 
             x => parse.bind(p2, 
                 y => parse.bind(p3, 
                     z => parse.of([x, y, z])))),
