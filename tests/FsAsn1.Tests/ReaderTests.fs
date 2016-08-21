@@ -235,3 +235,53 @@ let ``X.690 A.1 Example - description of a record structure``() =
                            &ExplicitTag(&VisibleString("19590717")) |]
                     |])
                |])
+
+[<Test>]
+let ``read SSL certificate``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
+    let md = FsAsn1.SchemaParser.parseModuleDefinition str 0
+    let s = md.Value.TypeAssignments
+
+    let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), 
+            (fun str -> if s.ContainsKey str then Some s.[str] else None ))
+    let element = readElement ctx (Some s.["Certificate"]) 
+    ()
+
+[<Test>]
+let ``read CHOICE element and correctly assign schema types``() =
+    let types = 
+        parse FsAsn1.SchemaParser.typeAssignments 
+            @"Name ::= CHOICE { rdnSequence  RDNSequence }
+              RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
+              RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue
+               AttributeTypeAndValue ::= SEQUENCE { type     AttributeType,
+                                                    value    AttributeValue }
+              AttributeType ::= OBJECT IDENTIFIER
+              AttributeValue ::= ANY"
+        |> Map.ofList
+        
+    (@"30 0D 31 0B 30 09 06 03 55 04 06 13 02 55 53", types)
+    |> shouldReadAsType "Name" 
+        { Header = makeHeader(Universal, Constructed , int UniversalTag.Sequence, Definite(13, 1))
+          Value = AsnValue.Sequence
+                    [| { Header = makeHeader(Universal, Constructed, int UniversalTag.Set, Definite(11, 1))
+                         Value = AsnValue.Set 
+                                    [| { Header = makeHeader(Universal, Constructed, int UniversalTag.Sequence, Definite(9, 1))
+                                         Value = AsnValue.Sequence
+                                                    [| { Header = makeHeader(Universal, Primitive, int UniversalTag.ObjectIdentifier, Definite(3, 1))
+                                                         Value = AsnValue.ObjectIdentifier [| 2I; 5I; 4I; 6I |]
+                                                         Offset = 6
+                                                         SchemaType = Map.tryFind "AttributeType" types }
+                                                       { Header = makeHeader(Universal, Primitive, int UniversalTag.PrintableString, Definite(2, 1))
+                                                         Value = AsnValue.PrintableString "US"
+                                                         Offset = 11
+                                                         SchemaType = Map.tryFind "AttributeValue" types }
+                                                    |]
+                                         Offset = 4
+                                         SchemaType = Map.tryFind "AttributeTypeAndValue" types } |]
+                         Offset = 2
+                         SchemaType = Map.tryFind "RelativeDistinguishedName" types }
+                    |]          
+          Offset = 0
+          SchemaType = Map.tryFind "Name" types }
+
