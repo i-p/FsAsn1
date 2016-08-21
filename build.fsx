@@ -135,4 +135,10 @@ Target "All" DoNothing
     ==> "FablePlugin" 
     ==> "BuildJS"
 
+"BuildJS" ==> "BuildTestsJS"
+"BuildTestsJS" ==> "RunTestsJS"
+"Babel" ==> "RunTestsJS"
+
+"BuildJS" ==> "BuildViewerJS"
+
 RunTargetOrDefault "All"
