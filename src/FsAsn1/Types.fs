@@ -80,10 +80,10 @@ and AsnValue =
     | VisibleString of string
     | IA5String of string
     | UTF8String of string
+    /// Represents value of the SEQUENCE or SEQUENCE OF type
     | Sequence of AsnElement[]
-    | SequenceOf of AsnElement[]
+    /// Represents value of the SET or SET OF type
     | Set of AsnElement[]
-    | SetOf of AsnElement[]
     | T61String of string
     | Unknown of byte[]
     | BitString of AsnBitString
@@ -111,10 +111,8 @@ let (|SimpleValue|Collection|) (value: AsnValue) =
     | VisibleString(_)
     | IA5String(_) ->
         SimpleValue()
-    | Sequence(items)        
-    | SequenceOf(items)
-    | Set(items)
-    | SetOf(items) ->
+    | Sequence(items)
+    | Set(items) ->
         Collection(items)    
     | ExplicitTag(el) -> 
         Collection([|el|])

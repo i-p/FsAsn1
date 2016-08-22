@@ -66,9 +66,7 @@ let private hexStringStream str = AsnArrayStream(hexStringToBytes str, 0)
 let private replaceChildren (value: AsnValue) children =
     match value with
     | Sequence(_) -> Sequence(children)
-    | SequenceOf(_) -> SequenceOf(children)
     | Set(_) -> Set(children)
-    | SetOf(_) -> SetOf(children)
     | ExplicitTag(_) ->
         match children with
         | [| c |] -> ExplicitTag(c)

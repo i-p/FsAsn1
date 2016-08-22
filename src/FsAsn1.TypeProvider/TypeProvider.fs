@@ -24,9 +24,7 @@ let getPrimitiveValue (element: AsnElement) : obj =
     | AsnValue.Null -> null    
     | AsnValue.BitString v -> box v
     | AsnValue.Sequence _ -> box element
-    | AsnValue.SequenceOf(_) -> failwith "Not implemented yet"
     | AsnValue.Set(_) -> failwith "Not implemented yet"
-    | AsnValue.SetOf(_) -> failwith "Not implemented yet"
     | AsnValue.ExplicitTag v -> box v
     | AsnValue.Boolean v -> box v
 

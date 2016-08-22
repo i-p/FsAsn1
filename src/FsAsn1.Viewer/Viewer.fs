@@ -263,9 +263,7 @@ let elInfo (asnElement: AsnElement) (parentAsnElement: AsnElement option) =
             | AsnBoolean.False -> "FALSE" |> Some
         | Null
         | Sequence(_)
-        | SequenceOf(_)
         | Set(_)
-        | SetOf(_)
         | Unknown(_)
         | BitString(_)
         | ExplicitTag(_) -> None
@@ -279,9 +277,7 @@ let elInfo (asnElement: AsnElement) (parentAsnElement: AsnElement option) =
         | PrintableString(_) -> "PRINTABLE_STRING"
         | UTF8String(_) -> "UTF8_STRING"
         | Sequence(_) -> "SEQUENCE"
-        | SequenceOf(_) -> "SEQUENCE_OF"
         | Set(_) -> "SET"
-        | SetOf(_) -> "SET_OF"
         | T61String(_) -> "T61_STRING"
         | Unknown(_) -> "Unknown"
         | BitString(_) -> "BITSTRING"
