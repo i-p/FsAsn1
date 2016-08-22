@@ -427,9 +427,9 @@ and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let stream = ctx.Stream
     let position = stream.Position
     let header = readHeader stream
-    
+    let ty = resolveType ctx ty
     let valueTy = 
-        match (resolveType ctx ty) with
+        match ty with
         | Kind(ChoiceType(components)) ->                
             //TODO toUniversalTag should be replaced by a more general function toTag, because this won't work for tagged components
             //TODO error when no component was found
