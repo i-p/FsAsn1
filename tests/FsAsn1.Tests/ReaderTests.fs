@@ -245,7 +245,28 @@ let ``read SSL certificate``() =
     let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), 
             (fun str -> if s.ContainsKey str then Some s.[str] else None ))
     let element = readElement ctx (Some s.["Certificate"]) 
-    ()
+
+    let unknownElements =
+        cataAsn 
+            (fun el -> 
+                match el.Value with 
+                | AsnValue.Unknown(_) -> [el]
+                | _ -> [])
+            (fun col children -> children |> List.concat)
+            element
+    let elementsWithoutSchemaType =
+        cataAsn 
+            (fun el -> 
+                match el.SchemaType with 
+                | None -> [el]
+                | _ -> [])
+            (fun col children -> children |> List.concat)
+            element
+
+
+    
+    CollectionAssert.IsEmpty(unknownElements)    
+    CollectionAssert.IsEmpty(elementsWithoutSchemaType)
 
 [<Test>]
 let ``read CHOICE element and correctly assign schema types``() =
@@ -259,6 +280,8 @@ let ``read CHOICE element and correctly assign schema types``() =
               AttributeType ::= OBJECT IDENTIFIER
               AttributeValue ::= ANY"
         |> Map.ofList
+      
+    let find name = Map.find name types |> Some
         
     (@"30 0D 31 0B 30 09 06 03 55 04 06 13 02 55 53", types)
     |> shouldReadAsType "Name" 
@@ -271,17 +294,17 @@ let ``read CHOICE element and correctly assign schema types``() =
                                                     [| { Header = makeHeader(Universal, Primitive, int UniversalTag.ObjectIdentifier, Definite(3, 1))
                                                          Value = AsnValue.ObjectIdentifier [| 2I; 5I; 4I; 6I |]
                                                          Offset = 6
-                                                         SchemaType = Map.tryFind "AttributeType" types }
+                                                         SchemaType = find "AttributeType" }
                                                        { Header = makeHeader(Universal, Primitive, int UniversalTag.PrintableString, Definite(2, 1))
                                                          Value = AsnValue.PrintableString "US"
                                                          Offset = 11
-                                                         SchemaType = Map.tryFind "AttributeValue" types }
+                                                         SchemaType = find "AttributeValue" }
                                                     |]
                                          Offset = 4
-                                         SchemaType = Map.tryFind "AttributeTypeAndValue" types } |]
+                                         SchemaType = find "AttributeTypeAndValue" } |]
                          Offset = 2
-                         SchemaType = Map.tryFind "RelativeDistinguishedName" types }
+                         SchemaType = find "RelativeDistinguishedName" }
                     |]          
           Offset = 0
-          SchemaType = Map.tryFind "Name" types }
+          SchemaType = find "Name" }
 

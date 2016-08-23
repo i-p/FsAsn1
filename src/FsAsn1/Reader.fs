@@ -204,7 +204,9 @@ let resolveType (ctx: AsnContext) (ty: AsnType option) =
         | None -> ty
     | _ -> ty
 
-let rec matchSequenceComponentType (header: AsnHeader) (components: ComponentType list) = 
+
+
+let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (components: ComponentType list) = 
     match components with
     | [] ->
         None, []
@@ -213,18 +215,18 @@ let rec matchSequenceComponentType (header: AsnHeader) (components: ComponentTyp
     | ComponentType(_, ty, Some (NamedTypeModifier.Default _)) :: rest
     | ComponentType(_, ty, Some NamedTypeModifier.Optional) :: rest ->        
         match ty.Kind with
+        | AnyType(_) ->
+            Some ty, rest
         | TaggedType(None, tag, _, _) ->
             if (tag = header.Tag) then
                 Some ty, rest
             else
-                matchSequenceComponentType header rest        
+                matchSequenceComponentType ctx header rest        
         | kind ->
-            //TODO create function typeToTag
-            //TODO toUniversalTag should take lookupType as its first argument
-            if (toUniversalTag (AsnContext(AsnArrayStream([||],0), fun s -> None)) kind |> Option.map int = Some header.Tag) then
+            if (toTag ctx kind = Some header.Tag) then
                 Some ty, rest
             else
-                matchSequenceComponentType header rest
+                matchSequenceComponentType ctx header rest
 
     
 and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
@@ -237,7 +239,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                 
                 let position = stream.Position
                 let header = readHeader stream
-                let ty,rest = matchSequenceComponentType header components
+                let ty,rest = matchSequenceComponentType ctx header components
                 let ty = resolveType ctx ty
                 let v = readValue ctx header ty
                                 
@@ -360,6 +362,7 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         printfn "Unsupported universal class tag '%d'" (int tag)
         stream.ReadBytes(len) |> Unknown
 
+//TODO pass type lookup instead of whole AsnContext
 //TODO add relative object identifier
 and toUniversalTag (ctx: AsnContext) (ty: AsnTypeKind) : UniversalTag option =
     match ty with
@@ -385,8 +388,26 @@ and toUniversalTag (ctx: AsnContext) (ty: AsnTypeKind) : UniversalTag option =
         let ty = ctx.LookupType name 
         ty |> Option.bind (fun t -> toUniversalTag ctx t.Kind)
 
+and toTag (ctx: AsnContext) (ty: AsnTypeKind) : TagNumber option =
+    match ty with
+    | AsnTypeKind.TaggedType(_, tag, _, _) -> Some tag
+    | _ ->
+        toUniversalTag ctx ty |> Option.map int
+
 and readValue (ctx : AsnContext) (h: AsnHeader) ty =    
     let (cls, tagNumber, length) = h.Class, h.Tag, h.Length
+
+    let ty = 
+        match ty with
+        | Kind(ChoiceType(components)) ->                            
+            //TODO error when no component was found
+            List.tryFind (fun (_, cty) ->
+                            toTag ctx cty.Kind = Some tagNumber) components
+            |> Option.map snd
+            |> resolveType ctx
+        | ty ->
+            ty
+
     match length with
     | Definite(len, _) ->
         // TODO create separate function
@@ -427,18 +448,6 @@ and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let stream = ctx.Stream
     let position = stream.Position
     let header = readHeader stream
-    let ty = resolveType ctx ty
-    let valueTy = 
-        match ty with
-        | Kind(ChoiceType(components)) ->                
-            //TODO toUniversalTag should be replaced by a more general function toTag, because this won't work for tagged components
-            //TODO error when no component was found
-            List.tryFind (fun (_, cty) ->
-                            toUniversalTag ctx cty.Kind |> Option.map int = Some header.Tag) components
-            |> Option.map snd
-            |> resolveType ctx
-        | ty ->
-            ty
-
-    let v = readValue ctx header valueTy    
+    let ty = resolveType ctx ty    
+    let v = readValue ctx header ty
     makeElement(header, v, position, ty)
