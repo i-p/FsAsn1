@@ -80,7 +80,7 @@ let ``parse named number list``() =
 let ``parse object identifier value - relative to referenced``() =
     @"{ id-pkix 1 }" 
     |> shouldParseAs oidValue
-        (OidValue([(Some "id-pkix", None); (None, Some(bigint 1))]))
+        (OidValue([(Some "id-pkix", None); (None, Some 1I)]))
 
 [<Test>]
 let ``parse object identifier value - name and number form``() =
@@ -134,7 +134,7 @@ let ``parse optional component with value range`` () =
             IntegerType([]) 
             |> toConstrainedType            
                 (ValueRange(
-                    LowerEndpoint.Value(IntegerValue(bigint 0)),
+                    LowerEndpoint.Value(IntegerValue(0I)),
                     UpperEndpoint.Max)), 
             optional))
 
@@ -252,7 +252,7 @@ let ``parse choice type with constrained alternative`` () =
                  |> constrain 
                     (SizeConstraint(
                         ValueRange(
-                            LowerEndpoint.Value(IntegerValue(bigint 1)), 
+                            LowerEndpoint.Value(IntegerValue(1I)), 
                             UpperEndpoint.Max)))) ] ))
             
 [<Test>]
@@ -278,12 +278,12 @@ let ``parse OCTET STRING type`` () =
 
 [<Test>]
 let ``parse INTEGER type with named values`` () =
-    "INTEGER  {  v1(0), v2(1), v3(2)  }" 
+    "INTEGER  {  v1(0), v2(1), v3(2)  }"
     |> shouldParseAs ptypeKind
         (IntegerType 
-            [ ("v1", SignedNumber(bigint 0))
-              ("v2", SignedNumber(bigint 1))
-              ("v3", SignedNumber(bigint 2)) ])
+            [ ("v1", SignedNumber(0I))
+              ("v2", SignedNumber(1I))
+              ("v3", SignedNumber(2I)) ])
 
 [<Test>]
 let ``parse CHOICE type`` () = 
@@ -300,7 +300,7 @@ let ``parse SEQUENCE OF type with size constraint`` () =
         (AsnTypeKind.SequenceOfType
             (SizeConstraint
                 (ValueRange
-                    (LowerEndpoint.Value(IntegerValue(bigint 1)), 
+                    (LowerEndpoint.Value(IntegerValue(1I)), 
                      UpperEndpoint.Max)) 
                 |> Some,
              SequenceOfType (referencedType "Extension")))
@@ -366,15 +366,15 @@ let ``parse start of module definition``() =
      BEGIN"
     |> shouldParseAs moduleDefinitionBegin
         { Identifier = "PKIX1Explicit88"
-          Oid = [| Some "iso", Some (bigint 1)
-                   Some "identified-organization", Some (bigint 3)
-                   Some "dod", Some (bigint 6)
-                   Some "internet", Some (bigint 1)
-                   Some "security", Some (bigint 5)
-                   Some "mechanisms", Some (bigint 5)
-                   Some "pkix", Some (bigint 7)
-                   Some "id-mod", Some (bigint 0)
-                   Some "id-pkix1-explicit", Some (bigint 18) |]
+          Oid = [| Some "iso", Some 1I
+                   Some "identified-organization", Some 3I
+                   Some "dod", Some 6I
+                   Some "internet", Some 1I
+                   Some "security", Some 5I
+                   Some "mechanisms", Some 5I
+                   Some "pkix", Some 7I
+                   Some "id-mod", Some 0I
+                   Some "id-pkix1-explicit", Some 18I |]
           TagDefault = Some ExplicitTags
           ExtensibilityImplied = false
           TypeAssignments = Map.empty

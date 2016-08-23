@@ -110,13 +110,13 @@ let decodeInteger (bytes: byte[]) : bigint =
     let firstByte = bytes.[0] |> int
     let initialValue = (firstByte &&& 0x7F) + (firstByte &&& 0x80) * -1
     Seq.skip 1 bytes 
-    |> Seq.fold (fun sum b -> sum * (bigint 256) + (bigint (int b))) (bigint initialValue)
+    |> Seq.fold (fun sum b -> sum * 256I + (bigint (int b))) (bigint initialValue)
 
 let readRelativeOid (stream: IAsnStream) (length: int) : bigint[] =
     let rec readNextValue valuesAcc valueAcc =        
         if stream.CanRead(1) then                
             let b = stream.ReadByte() 
-            let value = valueAcc * (bigint 128) + bigint (int (b &&& 0b01111111uy))
+            let value = valueAcc * 128I + bigint (int (b &&& 0b01111111uy))
 
             if ((b &&& 0x80uy) > 0uy) then
                 readNextValue valuesAcc value
@@ -133,12 +133,12 @@ let readOid (stream: IAsnStream) (length: int) : bigint[] =
     let subidentifiers = readRelativeOid stream length
     let first = subidentifiers.[0]
     let component1, component2 = 
-        if first < bigint(40) then
-            bigint.Zero, first
-        else if first < bigint(80) then
-            bigint.One, first - bigint(40)
+        if first < 40I then
+            0I, first
+        else if first < 80I then
+            1I, first - 40I
         else
-            bigint(2), first - bigint(80)
+            2I, first - 80I
 
     //TODO use list instead of array?
     Array.concat [[|component1; component2|]; (Array.skip 1 subidentifiers)]

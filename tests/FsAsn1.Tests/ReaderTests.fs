@@ -17,7 +17,7 @@ let ``read header of a primitive value with short length``() =
 
 [<Test>]
 let ``read short integer``() = 
-    "02 01 02" |> shouldReadAs (&Integer(bigint 2))
+    "02 01 02" |> shouldReadAs (&Integer 2I)
 
 [<Test>]
 let ``read long integer``() = 
@@ -25,11 +25,11 @@ let ``read long integer``() =
 
 [<Test>]
 let ``read smallest integer represented by 2 bytes``() =
-    "02 02 00 80" |> shouldReadAs (&Integer(bigint(128)))
+    "02 02 00 80" |> shouldReadAs (&Integer 128I)
 
 [<Test>]
 let ``read negative integer``() =
-    "02 01 80" |> shouldReadAs (&Integer(bigint(-128)))
+    "02 01 80" |> shouldReadAs (&Integer -128I)
 
 [<Test>]
 let ``read object identifier``() = 
@@ -160,11 +160,11 @@ let ``X.690 8.14 Example Type5``() =
 
 [<Test>]
 let ``X.690 8.19.5 Example OBJECT IDENTIFIER``() =
-    ("06 03 883703") |> shouldReadAs &(AsnValue.ObjectIdentifier([|bigint(2); bigint(999); bigint(3)|]))
+    ("06 03 883703") |> shouldReadAs &(AsnValue.ObjectIdentifier([|2I; 999I; 3I|]))
 
 [<Test>]
 let ``X.690 8.20.5 Example - Relative object identifier``() =
-    ("0D 04 C27B0302") |> shouldReadAs &(AsnValue.RelativeObjectIdentifier([|bigint(8571); bigint(3); bigint(2)|]))
+    ("0D 04 C27B0302") |> shouldReadAs &(AsnValue.RelativeObjectIdentifier([|8571I; 3I; 2I|]))
 
 [<Test>]
 let ``X.690 8.23.5.4 Example - VisibleString (primitive form)``() =
@@ -223,7 +223,7 @@ let ``X.690 A.1 Example - description of a record structure``() =
         (&AsnValue.Set
             [|  &makeName "John" "P" "Smith";
                 &ExplicitTag(&VisibleString("Director"));
-                &Integer(bigint 51);
+                &Integer 51I;
                 &ExplicitTag(&VisibleString("19710917"));
                 &ExplicitTag(&makeName "Mary" "T" "Smith");
                 &Sequence(
