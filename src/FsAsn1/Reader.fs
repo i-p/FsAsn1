@@ -204,6 +204,13 @@ let resolveType (ctx: AsnContext) (ty: AsnType option) =
         | None -> ty
     | _ -> ty
 
+let toAsnClass cls = 
+    match cls with
+    | Some Universal -> AsnClass.Universal
+    | Some Private -> AsnClass.Private
+    | Some Application -> AsnClass.Application
+    | None -> AsnClass.ContextSpecific
+
 type TypeTag =
     | UniversalTag of AsnClass * TagNumber
     | ExplicitlyTaggedType of AsnClass * TagNumber * AsnType
@@ -214,13 +221,7 @@ type TypeTag =
 
 let rec toExpectedTag (ctx: AsnContext) (ty: AsnTypeKind) =
     let wrap tag = UniversalTag(AsnClass.Universal, int tag)
-    let toAsnClass cls = 
-        match cls with
-        | Some Universal -> AsnClass.Universal
-        | Some Private -> AsnClass.Private
-        | Some Application -> AsnClass.Application
-        | None -> AsnClass.ContextSpecific
-        
+            
     match ty with    
     | AsnTypeKind.SequenceType(_)
     | AsnTypeKind.SequenceOfType(_, _) -> UniversalTag.Sequence |> wrap
@@ -294,49 +295,35 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (compon
         | AnyTag -> Some ty, rest
         | ChoiceComponentTag(cs) -> 
             failwith "Not implemented yet"
-    
-     
         
-
-    
 and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
     let stream = ctx.Stream
 
-    match ty with
-    | Kind(SequenceType components) ->        
-        let rec readNext acc components =
-            if stream.CanRead(1) then
-                
+    let readElements tryFindType state =
+        let rec recurse acc state = 
+            if stream.CanRead(1) then                            
                 let position = stream.Position
                 let header = readHeader stream
-                let ty,rest = matchSequenceComponentType ctx header components
+                let ty, newState = tryFindType header state
                 let ty = resolveType ctx ty
                 let v = readValue ctx header ty
-                                
-                readNext (makeElement(header, v, position, ty) :: acc) rest
-            else
-                acc |> List.toArray |> Array.rev            
-        readNext [] components
-    | Kind(AsnTypeKind.SequenceOfType(_, SequenceOfType.SequenceOfType(ty))) ->
-        let rec readNext acc =
-            if stream.CanRead(1) then
-                let position = stream.Position
-                let header = readHeader stream
-                let ty = resolveType ctx (Some ty)
-                let v = readValue ctx header ty
-
-                readNext (makeElement(header, v, position, ty) :: acc)
+                let el = makeElement(header, v, position, ty)
+                recurse (el :: acc) newState
             else
                 acc |> List.toArray |> Array.rev
-        readNext []
-    | Kind(SetType components) ->
-        let toAsnClass (tagClass: TagClass option) =
-            match tagClass with
-            | Some (TagClass.Application) -> AsnClass.Application
-            | Some (TagClass.Private) -> AsnClass.Private
-            | Some (TagClass.Universal) -> AsnClass.Universal
-            | None -> AsnClass.ContextSpecific
+        recurse [] state
+            
+    let readElementsNoState tryFindType =
+        readElements (fun h _ ->  tryFindType h, ()) ()
 
+    match ty with
+    | Kind(SequenceType components) ->
+        readElements (fun header components ->
+            matchSequenceComponentType ctx header components            
+        ) components
+    | Kind(AsnTypeKind.SequenceOfType(_, SequenceOfType.SequenceOfType(ty))) ->
+        readElementsNoState (fun header -> Some ty)        
+    | Kind(SetType components) ->
         let rec toPair ty =
             match ty.Kind with
             | TaggedType(cls, tag, _, _) -> ((toAsnClass cls, tag), ty)
@@ -351,43 +338,18 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
             |> List.map (fun ((ComponentType(_,ty,_)) as ct) -> toPair ty)
             |> Map.ofList
 
-        let rec readNext acc =
-            if stream.CanRead(1) then
-                let position = stream.Position
-                let header = readHeader stream
-                let ty = Map.find (header.Class, header.Tag) componentsByTag
-                let ty = resolveType ctx (Some ty)
-                let v = readValue ctx header ty
-
-                readNext (makeElement(header, v, position, ty) :: acc)
-            else
-                acc |> List.toArray |> Array.rev
-        readNext []
-    | Kind(AsnTypeKind.SetOfType(_, SetOfType.SetOfType(ty))) ->
-        let ty = resolveType ctx (Some ty)
-        let rec readNext acc =
-            if stream.CanRead(1) then
-                let position = stream.Position
-                let header = readHeader stream
-                let v = readValue ctx header ty
-
-                readNext (makeElement(header, v, position, ty) :: acc)
-            else
-                acc |> List.toArray |> Array.rev
-        readNext []
+        readElementsNoState (fun header ->
+            let ty = Map.find (header.Class, header.Tag) componentsByTag                      
+            Some ty)
+    | Kind(AsnTypeKind.SetOfType(_, SetOfType.SetOfType(ty))) ->        
+        readElementsNoState (fun header -> Some ty)
     | Kind(ReferencedType name) ->
         readCollection ctx (ctx.LookupType name)
     | None        
     | _ ->        
         printfn "Not implemented %A" ty
-        let rec readNext acc =
-            if stream.CanRead(1) then
-                let el = readElement ctx None                                
-                readNext (el :: acc)
-            else
-                acc |> List.toArray |> Array.rev            
-        readNext []
-        
+        readElementsNoState (fun header -> None)
+                        
 and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValue =
     let stream = ctx.Stream
     match (LanguagePrimitives.EnumOfValue tag) with
