@@ -325,17 +325,22 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
         readElementsNoState (fun header -> Some ty)        
     | Kind(SetType components) ->
         let rec toPair ty =
-            match ty.Kind with
-            | TaggedType(cls, tag, _, _) -> ((toAsnClass cls, tag), ty)
-            | ReferencedType(name) -> 
-                match ctx.LookupType(name) with
-                | Some ty -> toPair ty
-                | None -> failwith "??"
-            | _ -> failwith "?"
-
+            match toExpectedTag ctx ty.Kind with
+            | UniversalTag(cls, tag)
+            | ExplicitlyTaggedType(cls, tag, _)
+            | ImplicitlyTaggedType(cls, tag, _) -> ((cls, tag), ty)
+            | UnresolvedTypeTag(name) -> failwithf "Cannot determine tag of type %s" name
+            | AnyTag -> failwith "Cannot determine tag of ANY type"
+            | ChoiceComponentTag(_) -> failwith "Cannot determine tag of CHOICE type"
+            
         let componentsByTag =
             components
             |> List.map (fun ((ComponentType(_,ty,_)) as ct) -> toPair ty)
+            |> List.groupBy fst
+            |> List.map (fun (key, values) -> 
+                            match values with
+                            | [value] -> value
+                            | _ -> failwithf "Multiple components with the same class and tag: %A" key)
             |> Map.ofList
 
         readElementsNoState (fun header ->
