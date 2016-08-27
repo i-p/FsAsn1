@@ -140,10 +140,10 @@ let getElementSet (el: HTMLElement) =
       Hex = hexEl
       Schema = typeEl |> Core.Option.map (fun el -> (typeName, el)) }
 
-let hoverId (el: HTMLElement) =
-    let set = getElementSet el
-    hover (Some set)    
-
+let hoverId (el: HTMLElement option) =
+    el
+    |> Core.Option.map getElementSet
+    |> hover    
 
 let syncScroll (sourceEl: HTMLElement) 
                (sourceContainer: HTMLElement) 
@@ -154,30 +154,31 @@ let syncScroll (sourceEl: HTMLElement)
     targetContainer.scrollTop <- newScrollTop
     
 
-let selectId (el: HTMLElement) =
-    let set = getElementSet el
-
-    select (Some set)
-
-    if el.id.StartsWith("S") then        
-        let sync = syncScroll set.Structure viewer
-               
-        sync set.Hex hexViewer
-
-        match set.Schema with
-        | Some(_, el) -> sync el schemaViewer
-        | None -> ()
-                        
-    if el.id.StartsWith("H") then            
-        let sync = syncScroll set.Hex hexViewer
-               
-        sync set.Structure viewer
-
-        match set.Schema with
-        | Some(_, el) -> sync el schemaViewer
-        | None -> ()
-                        
+let selectId (el: HTMLElement option) =
+    match el with
+    | None -> select None
+    | Some(el) ->
+        let set = getElementSet el
+        select (Some set)
     
+        if el.id.StartsWith("S") then        
+            let sync = syncScroll set.Structure viewer
+               
+            sync set.Hex hexViewer
+
+            match set.Schema with
+            | Some(_, el) -> sync el schemaViewer
+            | None -> ()
+                        
+        if el.id.StartsWith("H") then            
+            let sync = syncScroll set.Hex hexViewer
+               
+            sync set.Structure viewer
+
+            match set.Schema with
+            | Some(_, el) -> sync el schemaViewer
+            | None -> ()
+                            
 let rec findParent predicate (el: HTMLElement) =
     if Object.ReferenceEquals(el, null) then
         None
@@ -189,7 +190,7 @@ let rec findParent predicate (el: HTMLElement) =
 let withElement (prefix: char) (el: HTMLElement) action =
     el
     |> findParent (fun el -> el.id.StartsWith(prefix.ToString()))
-    |> Core.Option.iter action
+    |> Core.Option.iter (fun el -> action (Some el))
 
 hexViewer.addEventListener_click(f1 (fun e -> 
     let el = e.target :?> HTMLElement
@@ -205,11 +206,19 @@ hexViewer.addEventListener_mouseover(f1 (fun e ->
     
     box ()), false)
 
+hexViewer.addEventListener_mouseleave(f1 (fun e ->     
+    hoverId None
+    box ()), false)
+
 viewer.addEventListener_mouseover(f1 (fun e -> 
     let n = e.target :?> HTMLElement
 
     withElement 'S' n hoverId
         
+    box ()), false)
+
+viewer.addEventListener_mouseleave(f1 (fun e ->     
+    hoverId None            
     box ()), false)
 
 viewer.addEventListener_click(f1 (fun e ->
