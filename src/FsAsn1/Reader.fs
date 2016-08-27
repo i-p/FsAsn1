@@ -204,7 +204,75 @@ let resolveType (ctx: AsnContext) (ty: AsnType option) =
         | None -> ty
     | _ -> ty
 
+type TypeTag =
+    | UniversalTag of AsnClass * TagNumber
+    | ExplicitlyTaggedType of AsnClass * TagNumber * AsnType
+    | ImplicitlyTaggedType of AsnClass * TagNumber * AsnType
+    | UnresolvedTypeTag of string
+    | AnyTag
+    | ChoiceComponentTag of (string * AsnType) list
 
+let rec toExpectedTag (ctx: AsnContext) (ty: AsnTypeKind) =
+    let wrap tag = UniversalTag(AsnClass.Universal, int tag)
+    let toAsnClass cls = 
+        match cls with
+        | Some Universal -> AsnClass.Universal
+        | Some Private -> AsnClass.Private
+        | Some Application -> AsnClass.Application
+        | None -> AsnClass.ContextSpecific
+        
+    match ty with    
+    | AsnTypeKind.SequenceType(_)
+    | AsnTypeKind.SequenceOfType(_, _) -> UniversalTag.Sequence |> wrap
+    | AsnTypeKind.SetType(_)
+    | AsnTypeKind.SetOfType(_, _) -> UniversalTag.Set |> wrap    
+    | AsnTypeKind.BooleanType -> UniversalTag.Boolean |> wrap
+    | AsnTypeKind.NullType -> UniversalTag.Null |> wrap
+    | AsnTypeKind.BitStringType -> UniversalTag.BitString |> wrap
+    | AsnTypeKind.ObjectIdentifierType -> UniversalTag.ObjectIdentifier |> wrap
+    | AsnTypeKind.OctetStringType -> UniversalTag.OctetString |> wrap
+    | AsnTypeKind.IntegerType(_) -> UniversalTag.Integer |> wrap    
+    | AsnTypeKind.ReferencedType("PrintableString") -> UniversalTag.PrintableString |> wrap
+    | AsnTypeKind.ReferencedType("VisibleString") -> UniversalTag.VisibleString |> wrap
+    | AsnTypeKind.ReferencedType("UTF8String") -> UniversalTag.UTF8String |> wrap    
+    | AsnTypeKind.ReferencedType("T61String") -> UniversalTag.T61String |> wrap    
+    | AsnTypeKind.ReferencedType("IA5String") -> UniversalTag.IA5String |> wrap    
+    | AsnTypeKind.ReferencedType("UTCTime") -> UniversalTag.UTCTime |> wrap    
+    | AsnTypeKind.ReferencedType("RelativeObjectIdentifier") -> UniversalTag.RelativeObjectIdentifier |> wrap    
+    // TODO the default tag kind should be specified in ASN module definition
+    | AsnTypeKind.TaggedType(cls, tag, None, taggedTy)
+    | AsnTypeKind.TaggedType(cls, tag, Some TagKind.Explicit, taggedTy) ->
+        ExplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
+    | AsnTypeKind.TaggedType(cls, tag, Some TagKind.Implicit, taggedTy) ->
+        ImplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
+    // An ANY type can be represented by any class/tag
+    | AsnTypeKind.AnyType(_) -> AnyTag
+    // A CHOICE type is represented by one of its components, but we don't know which one
+    | AsnTypeKind.ChoiceType(cs) -> ChoiceComponentTag(cs)
+    | AsnTypeKind.ReferencedType(name) ->
+        let ty = ctx.LookupType name 
+        match ty with
+        | Some ty -> toExpectedTag ctx ty.Kind
+        // We don't know the referenced type definition, so we can't tell anything about its tag or class
+        | None -> UnresolvedTypeTag(name)
+    
+
+let matchChoiceComponent (ctx: AsnContext) (header: AsnHeader) (components: (string * AsnType) list) =
+    components
+    |> List.tryFind (fun (_, cty) ->
+            match toExpectedTag ctx cty.Kind with
+            | UniversalTag(cls, tag)                
+            | ExplicitlyTaggedType(cls, tag, _)
+            | ImplicitlyTaggedType(cls, tag, _) ->
+                (cls, tag) = (header.Class, header.Tag)                
+            | UnresolvedTypeTag(name) -> 
+                failwithf "Cannot read CHOICE type with a component of unknown type %s" name
+            | AnyTag -> 
+                failwith "Cannot read CHOICE type with a component of ANY type"
+            | ChoiceComponentTag(_) -> 
+                failwith "TODO Not implemented yet") 
+    |> Option.map snd
+    |> resolveType ctx
 
 let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (components: ComponentType list) = 
     match components with
@@ -213,20 +281,22 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (compon
     | ComponentType(_, ty, None) :: rest ->
         Some ty, rest
     | ComponentType(_, ty, Some (NamedTypeModifier.Default _)) :: rest
-    | ComponentType(_, ty, Some NamedTypeModifier.Optional) :: rest ->        
-        match ty.Kind with
-        | AnyType(_) ->
-            Some ty, rest
-        | TaggedType(None, tag, _, _) ->
-            if (tag = header.Tag) then
-                Some ty, rest
-            else
-                matchSequenceComponentType ctx header rest        
-        | kind ->
-            if (toTag ctx kind = Some header.Tag) then
+    | ComponentType(_, ty, Some NamedTypeModifier.Optional) :: rest ->       
+        match toExpectedTag ctx ty.Kind with
+        | UniversalTag(cls, tag)
+        | ExplicitlyTaggedType(cls, tag, _)
+        | ImplicitlyTaggedType(cls, tag, _) ->
+            if (cls, tag) = (header.Class, header.Tag) then
                 Some ty, rest
             else
                 matchSequenceComponentType ctx header rest
+        | UnresolvedTypeTag(_) -> failwith "Not implemented yet"
+        | AnyTag -> Some ty, rest
+        | ChoiceComponentTag(cs) -> 
+            failwith "Not implemented yet"
+    
+     
+        
 
     
 and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
@@ -362,51 +432,21 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         printfn "Unsupported universal class tag '%d'" (int tag)
         stream.ReadBytes(len) |> Unknown
 
-//TODO pass type lookup instead of whole AsnContext
-//TODO add relative object identifier
-and toUniversalTag (ctx: AsnContext) (ty: AsnTypeKind) : UniversalTag option =
-    match ty with
-    | AsnTypeKind.AnyType(_) -> None
-    | AsnTypeKind.SequenceType(_)
-    | AsnTypeKind.SequenceOfType(_, _) -> 
-        Some UniversalTag.Sequence
-    | AsnTypeKind.SetType(_)
-    | AsnTypeKind.SetOfType(_, _) -> 
-        Some UniversalTag.Set
-    | AsnTypeKind.ChoiceType(_) -> None
-    | AsnTypeKind.BooleanType -> Some UniversalTag.Boolean
-    | AsnTypeKind.NullType -> Some UniversalTag.Null
-    | AsnTypeKind.BitStringType -> Some UniversalTag.BitString
-    | AsnTypeKind.ObjectIdentifierType -> Some UniversalTag.ObjectIdentifier
-    | AsnTypeKind.OctetStringType -> Some UniversalTag.OctetString
-    | AsnTypeKind.IntegerType(_) -> Some UniversalTag.Integer
-    | AsnTypeKind.TaggedType(_, _, _, _) -> None
-    | AsnTypeKind.ReferencedType("PrintableString") -> Some UniversalTag.PrintableString
-    | AsnTypeKind.ReferencedType("VisibleString") -> Some UniversalTag.VisibleString
-    | AsnTypeKind.ReferencedType("UTF8String") -> Some UniversalTag.UTF8String
-    | AsnTypeKind.ReferencedType(name) ->
-        let ty = ctx.LookupType name 
-        ty |> Option.bind (fun t -> toUniversalTag ctx t.Kind)
-
-and toTag (ctx: AsnContext) (ty: AsnTypeKind) : TagNumber option =
-    match ty with
-    | AsnTypeKind.TaggedType(_, tag, _, _) -> Some tag
-    | _ ->
-        toUniversalTag ctx ty |> Option.map int
-
 and readValue (ctx : AsnContext) (h: AsnHeader) ty =    
     let (cls, tagNumber, length) = h.Class, h.Tag, h.Length
+    
 
-    let ty = 
-        match ty with
-        | Kind(ChoiceType(components)) ->                            
-            //TODO error when no component was found
-            List.tryFind (fun (_, cty) ->
-                            toTag ctx cty.Kind = Some tagNumber) components
-            |> Option.map snd
-            |> resolveType ctx
-        | ty ->
-            ty
+    let failsToMatchHeader expectedTag =        
+        let compare cls tag = 
+            cls <> h.Class || tag <> h.Tag                
+        
+        match expectedTag with
+        | UniversalTag(cls, tag) -> compare cls tag
+        | ExplicitlyTaggedType(cls, tag, _) -> compare cls tag
+        | ImplicitlyTaggedType(cls, tag, _) -> compare cls tag
+        | UnresolvedTypeTag(_) -> false
+        | AnyTag -> false
+        | ChoiceComponentTag(_) -> false        
 
     match length with
     | Definite(len, _) ->
@@ -414,35 +454,62 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
         let ctx = ctx.WithBoundedStream(len)
         let stream = ctx.Stream
 
-        match cls with
-        | AsnClass.Universal-> 
-            readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len ty
-        | AsnClass.Private
-        | AsnClass.Application
-        | AsnClass.ContextSpecific ->
-            match ty with
-            | Kind(TaggedType(_, _, Some Explicit, ty2))
-            // TODO the default tag kind should be specified in ASN module definition            
-            | Kind(TaggedType(_, _, None, ty2)) ->
-                readElement ctx (Some ty2) |> ExplicitTag
-            | Kind(TaggedType(_, _, Some Implicit, ty2)) ->
-                let resolve t = 
-                    match Some t with 
-                    | Kind(ReferencedType n) -> defaultArg (ctx.LookupType n) t;
-                    | _ -> t
-                let ty2 = resolve ty2
-                
-                match toUniversalTag ctx ty2.Kind with
-                | Some tag ->
-                    readValueUniversal ctx tag len (Some ty2)
-                | None ->
-                    readValue ctx { h with Class = AsnClass.ContextSpecific } (Some ty2)
-            | None ->
-                printfn "Unknown underlying type for tag: %A %d" cls tagNumber
-                stream.ReadBytes(len) |> Unknown
+        let ty = resolveType ctx ty
+
+        let expectedTag = 
+            (ty |> Option.map (fun ty -> ty.Kind) |> Option.map (toExpectedTag ctx))
+
+        let readAsUnknownType () = stream.ReadBytes(len) |> Unknown
+        let readWithNoType () =
+            match h.Class with
+            | AsnClass.Universal ->
+                readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len None
             | _ ->
-                printfn "Unsupported"
                 stream.ReadBytes(len) |> Unknown
+
+        match (expectedTag |> Option.map failsToMatchHeader) with
+        | Some(true) ->
+            failwithf "Unexpected class and tag for type %A: %A %d" ty.Value h.Class h.Tag
+            //TODO if non strict mode
+//            readWithNoType()
+        | _ -> ()
+                
+        match expectedTag with
+        | Some(UniversalTag(cls, tag)) ->             
+            readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len ty                            
+        | Some(ExplicitlyTaggedType(cls, tag, taggedTy)) ->            
+            readElement ctx (Some taggedTy) |> AsnValue.ExplicitTag            
+        | Some(ImplicitlyTaggedType(cls, tag, taggedTy)) ->            
+            match toExpectedTag ctx taggedTy.Kind with
+            | UniversalTag(cls, tag) 
+            | ExplicitlyTaggedType(cls, tag, _) 
+            | ImplicitlyTaggedType(cls, tag, _) ->            
+                readValue ctx { h with Class = cls; Tag = tag } (Some taggedTy)
+            | AnyTag(_) ->
+                // X.680 31.2.9  The  IMPLICIT alternative shall not be used if the type defined by "Type" is an untagged choice type or an
+                // untagged open type or an untagged "DummyReference" (see Rec. ITU-T X.683 | ISO/IEC 8824-4, 8.3).
+                failwithf "Cannot read value of implicitly tagged ANY type"
+            | ChoiceComponentTag(_) ->
+                // X.680 31.2.9  The  IMPLICIT alternative shall not be used if the type defined by "Type" is an untagged choice type or an
+                // untagged open type or an untagged "DummyReference" (see Rec. ITU-T X.683 | ISO/IEC 8824-4, 8.3).
+                failwithf "Cannot read value of implicitly tagged CHOICE type"
+            | UnresolvedTypeTag(_) ->
+                readAsUnknownType()         
+        | Some(AnyTag(_)) -> 
+            match h.Class with
+            | AsnClass.Universal ->                
+                readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len None
+            | _ ->
+                readAsUnknownType()
+        | Some(UnresolvedTypeTag(_)) -> 
+            readAsUnknownType()
+        | Some(ChoiceComponentTag(components)) -> 
+            match matchChoiceComponent ctx h components with
+            | Some cty ->
+                readValue ctx h (Some cty)
+            | None -> failwithf "Cannot find matching CHOICE component"            
+        | None ->
+            readWithNoType()
     | Indefinite -> failwith "Not supported yet"    
 and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let stream = ctx.Stream
