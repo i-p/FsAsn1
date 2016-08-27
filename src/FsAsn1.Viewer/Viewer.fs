@@ -75,37 +75,11 @@ let makeHexViewerDom (asnElement: AsnElement) (bytes: byte[]) =
 
     cataAsn fSimple fCollection asnElement
 
-
-
-
-let hoverHexEl: HTMLElement option ref = ref None
-let hoverStructureEl: HTMLElement option ref = ref None
-let selectedHexEl: HTMLElement option ref = ref None
-let selectedStructureEl: HTMLElement option ref = ref None
-
-let selectedSchemaEl: HTMLElement option ref = ref None
-
 let toOption (el: HTMLElement) : HTMLElement option = 
     if Object.ReferenceEquals(el, null) then
         None
     else
         Some el
-
-
-let applyClass (cls: string) (el: HTMLElement option) (ref: HTMLElement option ref) =
-    match !ref with
-    | Some(el) -> el.classList.remove(cls)
-    | None -> ()
-
-    match el with
-    | Some(el) -> 
-        el.classList.add(cls)
-        ref := Some el
-    | None ->
-        ref := None
-
-let hover = applyClass "hover"
-let select = applyClass "selected"
  
 let getElementById id : HTMLElement option = 
     document.getElementById id |> toOption
@@ -113,78 +87,135 @@ let getElementById id : HTMLElement option =
 [<Emit("$1[$0]")>]
 let getProp p obj: obj = failwith "JS only"
 
-let hoverId id =
-    let n = getElementById("H" + id)
-    let s = getElementById("S" + id)
+type ElementType =
+    | StructureElement
+    | HexElement
+    | SchemaElement
 
-    hover n hoverHexEl
-    hover s hoverStructureEl
-    ()
+type ElementSet = 
+    { Id: string
+      Structure: HTMLElement
+      Hex: HTMLElement
+      Schema: (string * HTMLElement) option }
+    member this.Elements (): HTMLElement list =
+        match this.Schema with
+        | Some(_, el) -> [this.Structure; this.Hex; el]
+        | None -> [this.Structure; this.Hex]
 
-let selectId id =
-    let n = getElementById("H" + id)
-    let s = getElementById("S" + id)
+    member this.AddClass (cls: string) =
+        this.Elements()
+        |> List.iter (fun el -> el.classList.add(cls))
 
-    select n selectedHexEl
-    select s selectedStructureEl
+    member this.RemoveClass (cls: string) =
+        this.Elements()
+        |> List.iter (fun el -> el.classList.remove(cls))
+
+
+let hover, select =
+    let hoverSet: ElementSet option ref = ref None
+    let selectionSet: ElementSet option ref = ref None
+
+    let update (cls: string) (curSet: ElementSet option ref) (newSet: ElementSet option) =
+        match !curSet with
+        | Some(set) -> set.RemoveClass cls
+        | None -> ()
+
+        match newSet with
+        | Some(set) -> 
+            set.AddClass cls        
+            curSet := Some set
+        | None ->
+            curSet := None
+
+    update "hover" hoverSet, update "selected" selectionSet
+
+let getElementSet (el: HTMLElement) = 
+    let id = el.id.Substring(1)
+    let hexEl = getElementById("H" + id).Value
+    let structureEl = getElementById("S" + id).Value
+    let typeName = (getProp "typeName" structureEl) :?> string
+    let typeEl = getElementById("t-" + typeName)
+    { Id = id
+      Structure = structureEl
+      Hex = hexEl
+      Schema = typeEl |> Core.Option.map (fun el -> (typeName, el)) }
+
+let hoverId (el: HTMLElement) =
+    let set = getElementSet el
+    hover (Some set)    
+
+
+let syncScroll (sourceEl: HTMLElement) 
+               (sourceContainer: HTMLElement) 
+               (targetEl: HTMLElement) 
+               (targetContainer: HTMLElement) =
+    let newScrollTop = targetEl.offsetTop - (sourceEl.offsetTop - sourceContainer.scrollTop)
+
+    targetContainer.scrollTop <- newScrollTop
     
-    let typeName = (getProp "typeName" s) :?> string
 
-    let el = getElementById("t-" + typeName)
+let selectId (el: HTMLElement) =
+    let set = getElementSet el
 
-    select el selectedSchemaEl
+    select (Some set)
 
-    match n, s with
-    | Some n, Some s ->
-        let scrollTop = viewer.scrollTop
-        let curY = scrollTop
-        let moveY = n.offsetTop - (s.offsetTop - viewer.scrollTop)
+    if el.id.StartsWith("S") then        
+        let sync = syncScroll set.Structure viewer
+               
+        sync set.Hex hexViewer
 
-        hexViewer.scrollTop <- moveY
+        match set.Schema with
+        | Some(_, el) -> sync el schemaViewer
+        | None -> ()
+                        
+    if el.id.StartsWith("H") then            
+        let sync = syncScroll set.Hex hexViewer
+               
+        sync set.Structure viewer
 
-        match el with
-        | Some el ->
-            schemaViewer.scrollTop <- el.offsetTop - (s.offsetTop - viewer.scrollTop)
-        | _ -> ()
-    | _ -> ()
+        match set.Schema with
+        | Some(_, el) -> sync el schemaViewer
+        | None -> ()
+                        
     
+let rec findParent predicate (el: HTMLElement) =
+    if Object.ReferenceEquals(el, null) then
+        None
+    else if predicate el then
+        Some el
+    else                
+        findParent predicate el.parentElement
+
+let withElement (prefix: char) (el: HTMLElement) action =
+    el
+    |> findParent (fun el -> el.id.StartsWith(prefix.ToString()))
+    |> Core.Option.iter action
+
 hexViewer.addEventListener_click(f1 (fun e -> 
-    let n = e.target :?> HTMLElement
-
-    if n.id.StartsWith("H") then
-        n.id.Substring(1) |> selectId
-
+    let el = e.target :?> HTMLElement
+        
+    withElement 'H' el selectId
+        
     box ()), false)
 
 hexViewer.addEventListener_mouseover(f1 (fun e -> 
     let n = e.target :?> HTMLElement
 
-    if n.id.StartsWith("H") then
-        n.id.Substring(1) |> hoverId
-
+    withElement 'H' n hoverId
+    
     box ()), false)
 
 viewer.addEventListener_mouseover(f1 (fun e -> 
     let n = e.target :?> HTMLElement
 
-    if n.id.StartsWith("S") then
-        n.id.Substring(1) |> hoverId
-
+    withElement 'S' n hoverId
+        
     box ()), false)
 
 viewer.addEventListener_click(f1 (fun e ->
     let n = e.target :?> HTMLElement
 
-    if n.id.StartsWith("S") then
-        n.id.Substring(1) |> selectId
-
-        let s = (getProp "typeName" n) :?> string
-
-        let el = document.getElementById("t-" + s)
-
-        if not(Object.ReferenceEquals(el, null)) then
-            el.className <- "selected"
-
+    withElement 'S' n selectId
     box ()), false)
 
 let nameOfType (ty: AsnType) =
