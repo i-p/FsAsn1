@@ -308,3 +308,40 @@ let ``read CHOICE element and correctly assign schema types``() =
           Offset = 0
           SchemaType = find "Name" }
 
+
+open FsAsn1.Schema
+
+[<Test>]
+let ``toExpectedTag can return every value of UniversalTag enumeration`` () =
+    let examples = 
+        Map.ofList [
+            UniversalTag.Boolean, BooleanType
+            UniversalTag.Integer, IntegerType([])
+            UniversalTag.BitString, BitStringType
+            UniversalTag.OctetString, OctetStringType
+            UniversalTag.Null, NullType
+            UniversalTag.ObjectIdentifier, ObjectIdentifierType
+            UniversalTag.UTF8String, ReferencedType("UTF8String")
+            UniversalTag.RelativeObjectIdentifier, ReferencedType("RelativeObjectIdentifier")
+            UniversalTag.Sequence, SequenceType([])
+            UniversalTag.Set, SetType([])
+            UniversalTag.PrintableString, ReferencedType("PrintableString")
+            UniversalTag.T61String, ReferencedType("T61String")
+            UniversalTag.IA5String, ReferencedType("IA5String")
+            UniversalTag.UTCTime, ReferencedType("UTCTime")
+            UniversalTag.VisibleString, ReferencedType("VisibleString") ]
+     
+    let toTag = toExpectedTag (AsnContext(AsnArrayStream([||], 0), fun s -> None))                
+    let allUniversalTags = Enum.GetValues(typeof<UniversalTag>) |> Seq.cast<UniversalTag>
+    
+    for expected in allUniversalTags do       
+        match examples.TryFind expected with
+        | Some typeKind ->            
+            match toTag typeKind with
+            | UniversalTag(AsnClass.Universal, tag) ->
+                let actual = LanguagePrimitives.EnumOfValue<int,UniversalTag>(tag)
+                Assert.AreEqual(actual, expected)
+            | _ ->
+                Assert.Fail(sprintf "Incorrect mapping for universal tag %A" expected)
+        | None ->
+            Assert.Fail(sprintf "Missing example mapping for universal tag %A" expected)
