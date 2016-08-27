@@ -299,7 +299,7 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (compon
 and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
     let stream = ctx.Stream
 
-    let readElements tryFindType state =
+    let readElements tryFindType initialState =
         let rec recurse acc state = 
             if stream.CanRead(1) then                            
                 let position = stream.Position
@@ -311,7 +311,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                 recurse (el :: acc) newState
             else
                 acc |> List.toArray |> Array.rev
-        recurse [] state
+        recurse [] initialState
             
     let readElementsNoState tryFindType =
         readElements (fun h _ ->  tryFindType h, ()) ()
@@ -332,20 +332,23 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
             | UnresolvedTypeTag(name) -> failwithf "Cannot determine tag of type %s" name
             | AnyTag -> failwith "Cannot determine tag of ANY type"
             | ChoiceComponentTag(_) -> failwith "Cannot determine tag of CHOICE type"
-            
-        let componentsByTag =
-            components
-            |> List.map (fun ((ComponentType(_,ty,_)) as ct) -> toPair ty)
-            |> List.groupBy fst
-            |> List.map (fun (key, values) -> 
-                            match values with
-                            | [value] -> value
-                            | _ -> failwithf "Multiple components with the same class and tag: %A" key)
-            |> Map.ofList
+                    
+        components
+        |> List.map (fun ((ComponentType(_,ty,_)) as ct) -> toPair ty)
+        |> List.groupBy fst
+        |> List.map (fun (key, values) -> 
+                        match values with
+                        | [value] -> value
+                        | _ -> failwithf "Multiple components with the same class and tag: %A" key)
+        |> Map.ofList
+        |> readElements (fun header componentMap ->
+            let key = (header.Class, header.Tag)
+            match Map.tryFind key componentMap with
+            | Some(ty) ->
+                Some ty, Map.remove key componentMap
+            | None ->
+                failwithf "Unexpected component of SET type with class %A and tag %d" header.Class header.Tag)
 
-        readElementsNoState (fun header ->
-            let ty = Map.find (header.Class, header.Tag) componentsByTag                      
-            Some ty)
     | Kind(AsnTypeKind.SetOfType(_, SetOfType.SetOfType(ty))) ->        
         readElementsNoState (fun header -> Some ty)
     | Kind(ReferencedType name) ->
