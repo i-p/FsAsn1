@@ -388,9 +388,9 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                 acc |> List.toArray |> Array.rev            
         readNext []
         
-and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue =
+and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValue =
     let stream = ctx.Stream
-    match tag with
+    match (LanguagePrimitives.EnumOfValue tag) with
     | UniversalTag.Sequence ->                
         readCollection ctx ty |> Sequence
     | UniversalTag.Set->                
@@ -429,7 +429,7 @@ and readValueUniversal (ctx : AsnContext) (tag: UniversalTag) len ty : AsnValue 
         | 0uy -> Boolean(AsnBoolean.False)
         | v -> Boolean(AsnBoolean.True(v))                
     | _ ->
-        printfn "Unsupported universal class tag '%d'" (int tag)
+        printfn "Unsupported universal class tag '%d'" tag
         stream.ReadBytes(len) |> Unknown
 
 and readValue (ctx : AsnContext) (h: AsnHeader) ty =    
@@ -463,7 +463,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
         let readWithNoType () =
             match h.Class with
             | AsnClass.Universal ->
-                readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len None
+                readValueUniversal ctx tagNumber len None
             | _ ->
                 stream.ReadBytes(len) |> Unknown
 
@@ -476,7 +476,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
                 
         match expectedTag with
         | Some(UniversalTag(cls, tag)) ->             
-            readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len ty                            
+            readValueUniversal ctx tagNumber len ty                            
         | Some(ExplicitlyTaggedType(cls, tag, taggedTy)) ->            
             readElement ctx (Some taggedTy) |> AsnValue.ExplicitTag            
         | Some(ImplicitlyTaggedType(cls, tag, taggedTy)) ->            
@@ -498,7 +498,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
         | Some(AnyTag(_)) -> 
             match h.Class with
             | AsnClass.Universal ->                
-                readValueUniversal ctx (LanguagePrimitives.EnumOfValue tagNumber) len None
+                readValueUniversal ctx tagNumber len None
             | _ ->
                 readAsUnknownType()
         | Some(UnresolvedTypeTag(_)) -> 
