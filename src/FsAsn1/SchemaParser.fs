@@ -282,9 +282,11 @@ let parseAssignmentsInRange (str: string) fromIndex toIndex =
         let trimRangeEnd (ty: AsnType) =            
             match ty.Range with
             | Some(s, e) ->
-                let newEnd = previousIndex str e (isWhitespace >> not)
-                
-                {ty with Range = Some (s, defaultArg newEnd s) }
+                // subtract 1 since 'e' is an exclusive index
+                match previousIndex str (e - 1) (isWhitespace >> not) with
+                | Some(newEnd) ->                    
+                    {ty with Range = Some (s, newEnd + 1) }
+                | None -> failwith "Incorrect initial range"
             | None -> ty
 
         if index = -1 || index >= toIndex then

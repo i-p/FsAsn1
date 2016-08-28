@@ -382,14 +382,33 @@ let ``parse start of module definition``() =
           Range = None }
 
 [<Test>]
+let ``correctly determine range of a type assignment followed by a comment``() =
+    let str = "T ::= SEQUENCE {} -- some comment"
+    match parseAssignmentsInRange str 0 (str.Length - 1) with
+    | ([(str, ty)], _) ->
+        equal (0, 17) ty.Range.Value        
+    | _ -> Assert.Fail()
+
+
+let assertRangeIsTrimmed (schema: string) (typeAssignments: Map<string,AsnType>) = 
+    typeAssignments
+    |> Map.iter (fun _ ty -> 
+        let (fromPos,toPos) = ty.Range.Value
+        let taStr = schema.Substring(fromPos, toPos - fromPos)
+
+        equal (taStr.Trim()) taStr)
+
+[<Test>]
 let ``parse first module definition from RFC 5250``() =
     let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
     let md = parseModuleDefinition str 0
 
     equal 82 md.Value.TypeAssignments.Count
     equal 90 md.Value.ValueAssignments.Count
-    equal (312805, 341179) md.Value.Range.Value    
-
+    equal (312805, 341179) md.Value.Range.Value
+    
+    assertRangeIsTrimmed str md.Value.TypeAssignments
+    
 [<Test>]
 let ``parse second module definition from RFC 5250``() =
     let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
@@ -398,3 +417,5 @@ let ``parse second module definition from RFC 5250``() =
     equal 47 md.Value.TypeAssignments.Count
     equal 38 md.Value.ValueAssignments.Count
     equal (341258, 354788) md.Value.Range.Value    
+
+    assertRangeIsTrimmed str md.Value.TypeAssignments
