@@ -340,12 +340,11 @@ let elInfo (asnElement: AsnElement) (parentAsnElement: AsnElement option) =
             Some checkbox, Some label
 
     let typeNameEl = typeNameEl asnElement.SchemaType
-    let compNameEl =   componentNameEl asnElement.SchemaType (FSharp.Core.Option.bind (fun (m: AsnElement) -> m.SchemaType) parentAsnElement)
-    let offsetLengthEl = sprintf "%d,%s" asnElement.Offset lengthStr |> makeSpan "s-offset-length"
+    let compNameEl =   componentNameEl asnElement.SchemaType (FSharp.Core.Option.bind (fun (m: AsnElement) -> m.SchemaType) parentAsnElement)    
     let asnTypeEl = typeStr |> makeSpan "s-asn-type"
     let valueEl = valueStr |> Core.Option.map (makeSpan "s-value")
 
-    [checkbox; label; compNameEl; valueEl; typeNameEl; Some asnTypeEl; Some offsetLengthEl]
+    [checkbox; label; compNameEl; valueEl; typeNameEl; Some asnTypeEl]
     |> List.choose id
     |> List.iter (fun e -> el.appendChild e |> ignore)
 
