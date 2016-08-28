@@ -77,16 +77,20 @@
         }
 
         #hex-viewer .hover {
-            outline: 2px dotted orange;
-            background-color: #ffedd8;
+            outline: 2px dotted orange;            
         }
 
         #hex-viewer .selected {
             outline: 3px solid orange;
+            background-color: rgb(255, 250, 244);
+        }
+
+         #hex-viewer .hover {            
+            background-color: #ffedd8;
         }
 
         #viewer .hover {
-            background-color: #ffedd8;
+            outline: 2px dotted orange;
         }
 
         #viewer .selected {
@@ -94,8 +98,12 @@
             background-color: rgb(255, 250, 244);
         }
 
-        #schema-viewer .hover {
+        #viewer .hover {
             background-color: #ffedd8;
+        }
+
+        #schema-viewer .hover {            
+            outline: 2px dotted orange;
         }
 
         #schema-viewer .selected {
@@ -103,6 +111,10 @@
             background-color: rgb(255, 250, 244);
             display: table;                      
             padding: 5px;
+        }
+        
+        #schema-viewer .hover {
+            background-color: #ffedd8;            
         }
 
         main {
