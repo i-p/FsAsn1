@@ -184,10 +184,13 @@ let ``parse type assignment``()=
         tbsCertificate       TBSCertificate,
         signatureAlgorithm   AlgorithmIdentifier }"
     |> shouldParseAs typeAssignment
-        ("Certificate", SequenceType
-            ( [ComponentType("tbsCertificate", referencedType("TBSCertificate"), None);
-               ComponentType("signatureAlgorithm", referencedType("AlgorithmIdentifier"), None)] )
-            |> toNamedType "Certificate")
+        { Name = "Certificate"
+          Type = SequenceType
+                    ( [ComponentType("tbsCertificate", referencedType("TBSCertificate"), None);
+                       ComponentType("signatureAlgorithm", referencedType("AlgorithmIdentifier"), None)] )
+                 |> toNamedType "Certificate"
+          Range = None }
+
 
 [<Test>]
 let ``parse type assignments`` () =
@@ -195,22 +198,30 @@ let ``parse type assignments`` () =
     
       TBSCertificate  ::=  SEQUENCE { }"
     |> shouldParseAs typeAssignments
-        [ ("Certificate", SequenceType([]) |> toNamedType "Certificate");
-          ("TBSCertificate", SequenceType([]) |> toNamedType "TBSCertificate") ]
+        [ { Name = "Certificate"
+            Type = SequenceType([]) |> toNamedType "Certificate"
+            Range = None };
+          { Name = "TBSCertificate"
+            Type = SequenceType([]) |> toNamedType "TBSCertificate"
+            Range = None } ]
 
 [<Test>]
 let ``parse value assignment - OBJECT IDENTIFIER``() =
     @"id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }"
     |> shouldParseAs valueAssignment
-        ("id-pe", ObjectIdentifierType |> toType, 
-            OidValue([(Some "id-pkix", None); (None, Some 1I)]))
+        { Name = "id-pe"
+          Type = ObjectIdentifierType |> toType
+          Value = OidValue([(Some "id-pkix", None); (None, Some 1I)])
+          Range = None }
        
 [<Test>]
 let ``parse value assignment - referenced type``() =
     @"id-at-name AttributeType ::= { id-at 41 }"
     |> shouldParseAs valueAssignment
-        ("id-at-name", ReferencedType("AttributeType") |> toType, 
-            OidValue([(Some "id-at", None); (None, Some 41I)]))
+        { Name = "id-at-name"
+          Type = ReferencedType("AttributeType") |> toType
+          Value = OidValue([(Some "id-at", None); (None, Some 41I)])
+          Range = None }
 
 [<Test>]
 let ``parse sequence type with comments between components`` () =
@@ -385,12 +396,19 @@ let ``parse start of module definition``() =
 let ``correctly determine range of a type assignment followed by a comment``() =
     let str = "T ::= SEQUENCE {} -- some comment"
     match parseAssignmentsInRange str 0 (str.Length - 1) with
-    | ([(str, ty)], _) ->
-        equal (0, 17) ty.Range.Value        
+    | ([ta], _) ->
+        equal (0, 17) ta.Range.Value
     | _ -> Assert.Fail()
 
+[<Test>]
+let ``correctly determine range of a value assignment followed by a comment``() =
+    let str = "value INTEGER ::= 3 -- some comment"
+    match parseAssignmentsInRange str 0 (str.Length - 1) with
+    | (_, [va]) ->
+        equal (0, 19) va.Range.Value        
+    | _ -> Assert.Fail()
 
-let assertRangeIsTrimmed (schema: string) (typeAssignments: Map<string,AsnType>) = 
+let assertRangeIsTrimmed (schema: string) (typeAssignments: Map<string,TypeAssignment>) = 
     typeAssignments
     |> Map.iter (fun _ ty -> 
         let (fromPos,toPos) = ty.Range.Value

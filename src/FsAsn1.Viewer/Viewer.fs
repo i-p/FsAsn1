@@ -370,11 +370,11 @@ let makeStructureDom (parentEl: HTMLElement) (asnElement: AsnElement) =
 
     cataAsn fSimple fCollection asnElement None
 
-let read (ts: Map<_,_>) = 
+let read (ts: Map<string,TypeAssignment>) = 
 
     let br = AsnArrayStream(byteArray, 0)
 
-    let resolveTypeName = (fun n -> if ts.ContainsKey n then Some ts.[n] else None)
+    let resolveTypeName = (fun n -> if ts.ContainsKey n then Some ts.[n].Type else None)
 
     //TODO improve
     resolveType <- fun ty ->
@@ -387,7 +387,7 @@ let read (ts: Map<_,_>) =
 
     let rdr = AsnContext(br, resolveTypeName)
 
-    let element = readElement rdr (Some ts.["Certificate"])
+    let element = readElement rdr (Some ts.["Certificate"].Type)
 
     console.log(element)
 
@@ -414,7 +414,7 @@ xhr.onreadystatechange <- (fun (e) ->
 
     console.time("parsing")
 
-    let types = parseAssignments rfcSchema |> fst |> Map.ofSeq
+    let types = parseAssignments rfcSchema |> fst |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofSeq
     window?rfc <- types
 
     console.timeEnd("parsing")

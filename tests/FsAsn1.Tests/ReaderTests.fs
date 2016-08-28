@@ -78,7 +78,7 @@ let ``X.690 8.8.2 Example - NULL``() =
 
 [<Test>]
 let ``X.690 8.9.3 Example SEQUENCE``() =
-    let schema = parse FsAsn1.SchemaParser.typeAssignments "T ::= SEQUENCE {name IA5String, ok BOOLEAN}" |> Map.ofList
+    let schema = parse FsAsn1.SchemaParser.typeAssignments "T ::= SEQUENCE {name IA5String, ok BOOLEAN}" |> List.map (fun ta -> (ta.Name, ta.Type)) |> Map.ofList
     ("30 0A | 16 05 536D697468 | 01 01 FF", schema)
     |> shouldReadAsType "T" 
         {
@@ -96,15 +96,15 @@ let ``X.690 8.9.3 Example SEQUENCE``() =
             SchemaType = Map.tryFind "T" schema
         }
 
-let schema = FsAsn1.SchemaParser.parseAssignments """
+let parseTypes str = parse FsAsn1.SchemaParser.typeAssignments str |> List.map (fun ta -> (ta.Name, ta.Type)) |> Map.ofList
+let schema = parseTypes """
                 Type1 ::= VisibleString
                 Type2 ::= [APPLICATION 3] IMPLICIT Type1
                 Type3 ::= [2] Type2
                 Type4 ::= [APPLICATION 7] IMPLICIT Type3
                 Type5 ::= [2] IMPLICIT Type2 
                 """ 
-                |> fst |> Map.ofList
-
+                
 [<Test>]
 let ``X.690 8.14 Example Type1``() =
     ("1A 05 4A6F6E6573", schema) 
@@ -174,7 +174,7 @@ let ``X.690 8.23.5.4 Example - VisibleString (primitive form)``() =
 
 [<Test>]
 let ``X.690 A.1 Example - description of a record structure``() =
-    let recordSchema = parse FsAsn1.SchemaParser.typeAssignments """
+    let recordSchema = parseTypes """
         PersonnelRecord ::= [APPLICATION 0] IMPLICIT SET {
             name Name,
             title [0] VisibleString,
@@ -191,7 +191,7 @@ let ``X.690 A.1 Example - description of a record structure``() =
             initial  VisibleString,
             familyName  VisibleString }
         EmployeeNumber ::= [APPLICATION 2] IMPLICIT INTEGER
-        Date ::= [APPLICATION 3] IMPLICIT VisibleString -- YYYYMMDD """ |> Map.ofList
+        Date ::= [APPLICATION 3] IMPLICIT VisibleString -- YYYYMMDD """
 
     let input = 
         """60 8185 61 10 1A 04 4A6F686E
@@ -243,8 +243,8 @@ let ``read SSL certificate``() =
     let s = md.Value.TypeAssignments
 
     let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), 
-            (fun str -> if s.ContainsKey str then Some s.[str] else None ))
-    let element = readElement ctx (Some s.["Certificate"]) 
+            (fun str -> if s.ContainsKey str then Some s.[str].Type else None ))
+    let element = readElement ctx (Some s.["Certificate"].Type) 
 
     let unknownElements =
         cataAsn 
@@ -271,7 +271,7 @@ let ``read SSL certificate``() =
 [<Test>]
 let ``read CHOICE element and correctly assign schema types``() =
     let types = 
-        parse FsAsn1.SchemaParser.typeAssignments 
+        parseTypes 
             @"Name ::= CHOICE { rdnSequence  RDNSequence }
               RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
               RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue
@@ -279,8 +279,7 @@ let ``read CHOICE element and correctly assign schema types``() =
                                                     value    AttributeValue }
               AttributeType ::= OBJECT IDENTIFIER
               AttributeValue ::= ANY"
-        |> Map.ofList
-      
+              
     let find name = Map.find name types |> Some
         
     (@"30 0D 31 0B 30 09 06 03 55 04 06 13 02 55 53", types)

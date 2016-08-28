@@ -166,7 +166,7 @@ let toProvidedProperty (lookupProvidedType: string -> ProvidedTypeDefinition opt
     ProvidedProperty(prop.Name, propertyType, IsStatic = false, GetterCode = toGetterCode prop.Getter)
 
 let providedTopLevelTypesFromSchema schema =
-    let topLevelTypes = FsAsn1.SchemaParser.parseAssignments schema |> fst
+    let topLevelTypes = FsAsn1.SchemaParser.parseAssignments schema |> fst |> List.map (fun ta -> (ta.Name, ta.Type))
 
     let namedAsnTypes = topLevelTypes |> Map.ofList
 

@@ -195,13 +195,13 @@ let typeAssignment =
     spaces 
     >>. withRange ((attempt (typeReference .>> pstring "::=" .>> spaces)) 
                    .>>. ptype)
-    |>> fun (r, (n, ty)) -> (n, { ty with TypeName = Some n; Range = r })
+    |>> fun (r, (n, ty)) -> { Name = n; Type = { ty with TypeName = Some n }; Range = r }
 
 let valueAssignment = 
     spaces 
     >>. withRange ((attempt (valueReference .>>. (ptype .>> spaces) .>> str_ws "::=")) 
                    .>>. value)
-    |>> fun (r, ((n, ty), v)) -> (n, { ty with Range = r }, v)
+    |>> fun (r, ((n, ty), v)) -> { Name = n; Type = ty; Value = v; Range = r }
 
 //TODO choice doesn't work in JS yet
 // sequenceOfType must be before sequenceType
@@ -279,16 +279,14 @@ let parseAssignmentsInRange (str: string) fromIndex toIndex =
     let rec parseNext (fromIndex: int) acc acc2 =         
         let mutable index = str.IndexOf("::=", fromIndex)
         
-        let trimRangeEnd (ty: AsnType) =            
-            match ty.Range with
-            | Some(s, e) ->
-                // subtract 1 since 'e' is an exclusive index
-                match previousIndex str (e - 1) (isWhitespace >> not) with
-                | Some(newEnd) ->                    
-                    {ty with Range = Some (s, newEnd + 1) }
-                | None -> failwith "Incorrect initial range"
-            | None -> ty
-
+        let trimRangeEnd (range: (int * int)) =            
+            let s,e = range            
+            // subtract 1 since 'e' is an exclusive index
+            match previousIndex str (e - 1) (isWhitespace >> not) with
+            | Some(newEnd) ->                    
+                (s, newEnd + 1)
+            | None -> failwith "Incorrect initial range"
+                    
         if index = -1 || index >= toIndex then
             acc, acc2
         else           
@@ -298,12 +296,12 @@ let parseAssignmentsInRange (str: string) fromIndex toIndex =
             let count = toIndex - start
             
             match (runParserOnSubstring typeAssignment { Offset = start; UseRanges = true } "" str start count) with
-            | Success((n, ty), _, _) -> 
-                recurse ((n, trimRangeEnd ty) :: acc) acc2
+            | Success(typeAssignment, _, _) -> 
+                recurse ({ typeAssignment with Range = typeAssignment.Range |> Option.map trimRangeEnd } :: acc) acc2
             | Failure(errorMsg, _, _) ->                
                 match (runParserOnSubstring valueAssignment { Offset = start; UseRanges = true } "" str start count) with
-                | Success((n, ty, value), _, _) -> 
-                    recurse acc ((n, trimRangeEnd ty, value) :: acc2)
+                | Success(valueAssignment, _, _) ->                     
+                    recurse acc ({ valueAssignment with Range = valueAssignment.Range |> Option.map trimRangeEnd } :: acc2)
                 | Failure(errorMsg, _, _) ->
                     recurse acc acc2
          
@@ -343,6 +341,6 @@ let parseModuleDefinition (str: string) (start: int) =
         let types, values = parseAssignmentsInRange str (lineStart + int startPos.Index) endIndex
 
         { mdb with 
-            TypeAssignments = Map.ofList types
-            ValueAssignments = values |> List.map (fun (n, ty, v) -> (n, (ty, v))) |> Map.ofList
+            TypeAssignments = types |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList
+            ValueAssignments = values |> List.map (fun va -> (va.Name, va)) |> Map.ofList
             Range = Some(lineStart + int startPos.Index, endIndex + "END".Length) })

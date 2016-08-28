@@ -32,9 +32,6 @@ and AsnType =
       Range: (int * int) option }
 and ComponentType = 
     | ComponentType of string * AsnType * NamedTypeModifier option
-and TypeReference = string
-and TypeAssignment = TypeReference * AsnType
-and DefinedType = TypeReference
 and NamedTypeModifier = 
     | Optional 
     | Default of Value
@@ -69,12 +66,21 @@ and TagDefault =
     | ExplicitTags
     | ImplicitTags
     | AutomaticTags
+and ValueAssignment =
+    { Name: string
+      Type: AsnType
+      Value: Value
+      Range: (int * int) option }
+and TypeAssignment =
+    { Name: string
+      Type: AsnType
+      Range: (int * int) option } 
 and ModuleDefinition =
     { Identifier: string
       Oid: (string option * bigint option) []
       TagDefault: TagDefault option
       ExtensibilityImplied: bool
-      TypeAssignments: Map<string, AsnType>
-      ValueAssignments: Map<string, AsnType * Value>
+      TypeAssignments: Map<string, TypeAssignment>
+      ValueAssignments: Map<string, ValueAssignment>
       Range: (int * int) option }
 

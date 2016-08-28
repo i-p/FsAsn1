@@ -95,9 +95,9 @@ let (~&) = toDummyElement
 let private isDummy (el: AsnElement) = el.Offset = -1 && el.Header.Tag = -1
 
 let private convertToDummy (el: AsnElement) =
-    let fSimple el =
+    let fSimple (el: AsnElement) =
         toDummyElement el.Value
-    let fCollection el children =
+    let fCollection (el: AsnElement) children =
         toDummyElement (replaceChildren el.Value children)
 
     cataAsn fSimple fCollection el
