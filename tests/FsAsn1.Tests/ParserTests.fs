@@ -390,6 +390,7 @@ let ``parse start of module definition``() =
           ExtensibilityImplied = false
           TypeAssignments = Map.empty
           ValueAssignments = Map.empty
+          Imports = []
           Range = None }
 
 [<Test>]
@@ -406,8 +407,30 @@ let ``parse start of module definition with line break after module name``() =
           ExtensibilityImplied = false
           TypeAssignments = Map.empty
           ValueAssignments = Map.empty
+          Imports = []
           Range = None }
 
+[<Test>]
+let ``parse start of module definition with imports``() =
+    "ModuleName 
+     { 1 2 }
+     DEFINITIONS ::=     
+     BEGIN
+     IMPORTS
+        Type1, value1, Type2, value2 FROM OtherModule { 1 3 };"
+    |> shouldParseAs moduleDefinitionBegin
+        { Identifier = "ModuleName"
+          Oid = [| None, Some 1I
+                   None, Some 2I |]
+          TagDefault = None
+          ExtensibilityImplied = false
+          TypeAssignments = Map.empty
+          ValueAssignments = Map.empty
+          Imports = [ { Identifier = "OtherModule"
+                        Oid = [| (None, Some 1I); (None, Some 3I) |]
+                        TypeReferences = ["Type1"; "Type2"]
+                        ValueReferences = ["value1"; "value2"] } ]
+          Range = None }
 
 [<Test>]
 let ``correctly determine range of a type assignment followed by a comment``() =

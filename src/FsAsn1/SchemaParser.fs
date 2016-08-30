@@ -242,19 +242,36 @@ let tagDefault =
 let extensionDefault =
     (str_ws "EXTENSIBILITY IMPLIED" >>% true) <|> preturn false
 
+
+let parseModuleImports =
+    let symbol = typeReference <|> valueReference
+    let import = 
+        pipe3
+            (sepBy symbol (str_ws ","))
+            (str_ws "FROM" >>. moduleReference)
+            oidValue
+            (fun symbols moduleName (OidValue(cs)) -> 
+                { Identifier = moduleName
+                  Oid = Array.ofList(cs)
+                  ValueReferences = List.filter (fun r -> System.Char.IsLower r.[0]) symbols
+                  TypeReferences = List.filter (fun r -> System.Char.IsUpper r.[0]) symbols } )
+    
+    (str_ws "IMPORTS" >>. many import .>> str_ws ";") <|>% []
+
 let moduleDefinitionBegin = 
     pipe4
         moduleReference 
         (oidValue .>> str_ws "DEFINITIONS")
         tagDefault
-        (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN")
-        (fun ident (OidValue(cs)) tagDefault extDefault ->
+        (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN" .>>. parseModuleImports)
+        (fun ident (OidValue(cs)) tagDefault (extDefault, imports) ->
             { Identifier = ident 
               Oid = Array.ofList cs
               TagDefault = tagDefault
               ExtensibilityImplied = extDefault
               TypeAssignments = Map.empty
               ValueAssignments = Map.empty
+              Imports = imports
               Range = None } )
 
 let parseSubstring p str start count =

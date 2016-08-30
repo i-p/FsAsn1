@@ -75,6 +75,11 @@ and TypeAssignment =
     { Name: string
       Type: AsnType
       Range: (int * int) option } 
+and ModuleImport =
+    { Identifier: string
+      Oid: (string option * bigint option) []
+      ValueReferences: string list
+      TypeReferences: string list }      
 and ModuleDefinition =
     { Identifier: string
       Oid: (string option * bigint option) []
@@ -82,5 +87,6 @@ and ModuleDefinition =
       ExtensibilityImplied: bool
       TypeAssignments: Map<string, TypeAssignment>
       ValueAssignments: Map<string, ValueAssignment>
+      Imports: ModuleImport list
       Range: (int * int) option }
 
