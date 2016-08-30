@@ -393,6 +393,23 @@ let ``parse start of module definition``() =
           Range = None }
 
 [<Test>]
+let ``parse start of module definition with line break after module name``() =
+    "ModuleName 
+     { 1 2 }
+     DEFINITIONS ::=     
+     BEGIN"
+    |> shouldParseAs moduleDefinitionBegin
+        { Identifier = "ModuleName"
+          Oid = [| None, Some 1I
+                   None, Some 2I |]
+          TagDefault = None
+          ExtensibilityImplied = false
+          TypeAssignments = Map.empty
+          ValueAssignments = Map.empty
+          Range = None }
+
+
+[<Test>]
 let ``correctly determine range of a type assignment followed by a comment``() =
     let str = "T ::= SEQUENCE {} -- some comment"
     match parseAssignmentsInRange str 0 (str.Length - 1) with

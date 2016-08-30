@@ -265,17 +265,17 @@ let parseSubstring p str start count =
 let parse p str = 
     parseSubstring p str 0 str.Length
 
-let parseAssignmentsInRange (str: string) fromIndex toIndex =     
-    let isNewline c = c = '\r' || c = '\n'
-    let isWhitespace c = c = ' ' || isNewline c
-    
-    let previousIndex (str: string) startIndex (f: char -> bool) =        
-        let mutable index = startIndex
-        while index >= 0 && not (f str.[index]) do
-            index <- index - 1
+let previousIndex (str: string) startIndex (f: char -> bool) =        
+    let mutable index = startIndex
+    while index >= 0 && not (f str.[index]) do
+        index <- index - 1
         
-        if index = -1 then None else Some index
+    if index = -1 then None else Some index
 
+let isNewline c = c = '\r' || c = '\n'
+let isWhitespace c = c = ' ' || isNewline c
+
+let parseAssignmentsInRange (str: string) fromIndex toIndex =           
     let rec parseNext (fromIndex: int) acc acc2 =         
         let mutable index = str.IndexOf("::=", fromIndex)
         
@@ -329,7 +329,8 @@ let lastIndexOfAny (anyOf: char[]) (str: string) (startIndex: int) =
 let parseModuleDefinition (str: string) (start: int) =
     indexOf "DEFINITIONS" str start
     |> Option.bind(lastIndexOf "{" str)
-    |> Option.bind(lastIndexOfAny [| '\r'; '\n' |] str)
+    |> Option.bind(fun i -> previousIndex str (i - 1) (isWhitespace >> not))
+    |> Option.bind(fun i -> previousIndex str (i - 1) (isWhitespace))    
     |> Option.map(fun lineStart -> 
                 
         let (startPos, mdb, endPos) = 
