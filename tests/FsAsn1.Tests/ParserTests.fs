@@ -454,3 +454,13 @@ let ``parse second module definition from RFC 5250``() =
     equal (341258, 354788) md.Value.Range.Value    
 
     assertRangeIsTrimmed str md.Value.TypeAssignments
+
+[<Test>]
+let ``parse first module definition from RFC 3852``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc3852.txt")
+    let md = parseModuleDefinition str 0
+
+    equal "CryptographicMessageSyntax2004" md.Value.Identifier
+    equal 67 md.Value.TypeAssignments.Count
+    equal 11 md.Value.ValueAssignments.Count
+    

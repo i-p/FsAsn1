@@ -66,6 +66,7 @@
     <None Include="Script1.fsx" />
     <None Include="Data\google_ssl.cer" />
     <Content Include="Data\rfc5280.txt" />
+    <Content Include="Data\rfc3852.txt" />
     <None Include="load-tp-assemblies.fsx" />
   </ItemGroup>
   <ItemGroup>
