@@ -76,9 +76,23 @@ let ``X.690 8.6.4.2 Example - Bitstring primitive encoding``() =
 let ``X.690 8.8.2 Example - NULL``() =
     "05 00" |> shouldReadAs &AsnValue.Null
 
+let parseTypes str : FsAsn1.Schema.ModuleDefinition = 
+    let ta = parse FsAsn1.SchemaParser.typeAssignments str |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList
+
+    {
+        Identifier = "_"
+        Oid = [||]
+        TagDefault = None
+        ExtensibilityImplied = false
+        TypeAssignments = ta
+        ValueAssignments = Map.empty
+        Imports = []
+        Range = None
+    }
+
 [<Test>]
 let ``X.690 8.9.3 Example SEQUENCE``() =
-    let schema = parse FsAsn1.SchemaParser.typeAssignments "T ::= SEQUENCE {name IA5String, ok BOOLEAN}" |> List.map (fun ta -> (ta.Name, ta.Type)) |> Map.ofList
+    let schema = parseTypes "T ::= SEQUENCE {name IA5String, ok BOOLEAN}"
     ("30 0A | 16 05 536D697468 | 01 01 FF", schema)
     |> shouldReadAsType "T" 
         {
@@ -87,16 +101,15 @@ let ``X.690 8.9.3 Example SEQUENCE``() =
                         [| { Header = makeHeader(Universal, Primitive, int UniversalTag.IA5String, Definite(5, 1))
                              Value = AsnValue.IA5String("Smith")
                              Offset = 2
-                             SchemaType = Some(toType (FsAsn1.Schema.ReferencedType("IA5String"))) }
+                             SchemaType = Some(toComponentType "name" (FsAsn1.Schema.ReferencedType("IA5String"))) }
                            { Header = makeHeader(Universal, Primitive, int UniversalTag.Boolean, Definite(1, 1))
                              Value = AsnValue.Boolean(AsnBoolean.True(255uy))
                              Offset = 9                            
-                             SchemaType = Some(toType FsAsn1.Schema.BooleanType) } |]
+                             SchemaType = Some(toComponentType "ok" FsAsn1.Schema.BooleanType) } |]
             Offset = 0
-            SchemaType = Map.tryFind "T" schema
+            SchemaType = schema.TryFindType "T"
         }
 
-let parseTypes str = parse FsAsn1.SchemaParser.typeAssignments str |> List.map (fun ta -> (ta.Name, ta.Type)) |> Map.ofList
 let schema = parseTypes """
                 Type1 ::= VisibleString
                 Type2 ::= [APPLICATION 3] IMPLICIT Type1
@@ -112,7 +125,7 @@ let ``X.690 8.14 Example Type1``() =
         { Header = makeHeader(Universal, Primitive, int UniversalTag.VisibleString, Definite(5, 1))
           Value = AsnValue.VisibleString("Jones")
           Offset = 0
-          SchemaType = Map.tryFind "Type1" schema }
+          SchemaType = schema.TryFindType "Type1" }
 
 [<Test>]
 let ``X.690 8.14 Example Type2``() =
@@ -121,7 +134,7 @@ let ``X.690 8.14 Example Type2``() =
         { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
           Value = AsnValue.VisibleString("Jones")
           Offset = 0
-          SchemaType = Map.tryFind "Type2" schema }
+          SchemaType = schema.TryFindType "Type2" }
 
 [<Test>]
 let ``X.690 8.14 Example Type3``() =
@@ -132,9 +145,9 @@ let ``X.690 8.14 Example Type3``() =
                     { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
                       Value = AsnValue.VisibleString("Jones")
                       Offset = 2
-                      SchemaType = Map.tryFind "Type2" schema }
+                      SchemaType = schema.TryFindType "Type2" }
           Offset = 0
-          SchemaType = Map.tryFind "Type3" schema }
+          SchemaType = schema.TryFindType "Type3" }
 
 [<Test>]
 let ``X.690 8.14 Example Type4``() =
@@ -145,9 +158,9 @@ let ``X.690 8.14 Example Type4``() =
                     { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
                       Value = AsnValue.VisibleString("Jones")
                       Offset = 2
-                      SchemaType = Map.tryFind "Type2" schema }
+                      SchemaType = schema.TryFindType "Type2" }
            Offset = 0
-           SchemaType = Map.tryFind "Type4" schema }
+           SchemaType = schema.TryFindType "Type4" }
 
 [<Test>]
 let ``X.690 8.14 Example Type5``() =
@@ -156,7 +169,7 @@ let ``X.690 8.14 Example Type5``() =
         { Header = makeHeader(ContextSpecific, Primitive, 2, Definite(5, 1))
           Value = AsnValue.VisibleString("Jones")
           Offset = 0
-          SchemaType = Map.tryFind "Type5" schema }
+          SchemaType = schema.TryFindType "Type5" }
 
 [<Test>]
 let ``X.690 8.19.5 Example OBJECT IDENTIFIER``() =
@@ -236,6 +249,23 @@ let ``X.690 A.1 Example - description of a record structure``() =
                     |])
                |])
 
+
+let unknownElements =
+    cataAsn 
+        (fun el -> 
+            match el.Value with 
+            | AsnValue.Unknown(_) -> [el]
+            | _ -> [])
+        (fun col children -> children |> List.concat)
+        
+let elementsWithoutSchemaType =
+    cataAsn 
+        (fun el -> 
+            match el.SchemaType with 
+            | None -> [el]
+            | _ -> [])
+        (fun col children -> children |> List.concat)
+        
 [<Test>]
 let ``read SSL certificate``() =
     let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
@@ -244,30 +274,16 @@ let ``read SSL certificate``() =
 
     let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), 
             (fun str -> if s.ContainsKey str then Some s.[str].Type else None ))
+
+    ctx.Modules <- [md.Value]
     let element = readElement ctx (Some s.["Certificate"].Type) 
-
-    let unknownElements =
-        cataAsn 
-            (fun el -> 
-                match el.Value with 
-                | AsnValue.Unknown(_) -> [el]
-                | _ -> [])
-            (fun col children -> children |> List.concat)
-            element
-    let elementsWithoutSchemaType =
-        cataAsn 
-            (fun el -> 
-                match el.SchemaType with 
-                | None -> [el]
-                | _ -> [])
-            (fun col children -> children |> List.concat)
-            element
+        
+    CollectionAssert.IsEmpty(unknownElements element)    
+    CollectionAssert.IsEmpty(elementsWithoutSchemaType element)
 
 
-    
-    CollectionAssert.IsEmpty(unknownElements)    
-    CollectionAssert.IsEmpty(elementsWithoutSchemaType)
 
+       
 [<Test>]
 let ``read CHOICE element and correctly assign schema types``() =
     let types = 
@@ -280,8 +296,8 @@ let ``read CHOICE element and correctly assign schema types``() =
               AttributeType ::= OBJECT IDENTIFIER
               AttributeValue ::= ANY"
               
-    let find name = Map.find name types |> Some
-        
+    let find name componentName = types.FindType name |> fun ty -> { ty with ComponentName = componentName } |> Some    
+
     (@"30 0D 31 0B 30 09 06 03 55 04 06 13 02 55 53", types)
     |> shouldReadAsType "Name" 
         { Header = makeHeader(Universal, Constructed , int UniversalTag.Sequence, Definite(13, 1))
@@ -293,19 +309,19 @@ let ``read CHOICE element and correctly assign schema types``() =
                                                     [| { Header = makeHeader(Universal, Primitive, int UniversalTag.ObjectIdentifier, Definite(3, 1))
                                                          Value = AsnValue.ObjectIdentifier [| 2I; 5I; 4I; 6I |]
                                                          Offset = 6
-                                                         SchemaType = find "AttributeType" }
+                                                         SchemaType = find "AttributeType" (Some "type") }
                                                        { Header = makeHeader(Universal, Primitive, int UniversalTag.PrintableString, Definite(2, 1))
                                                          Value = AsnValue.PrintableString "US"
                                                          Offset = 11
-                                                         SchemaType = find "AttributeValue" }
+                                                         SchemaType = find "AttributeValue" (Some "value") }
                                                     |]
                                          Offset = 4
-                                         SchemaType = find "AttributeTypeAndValue" } |]
+                                         SchemaType = find "AttributeTypeAndValue" None } |]
                          Offset = 2
-                         SchemaType = find "RelativeDistinguishedName" }
+                         SchemaType = find "RelativeDistinguishedName" None }
                     |]          
           Offset = 0
-          SchemaType = find "Name" }
+          SchemaType = find "Name" None }
 
 
 open FsAsn1.Schema
