@@ -40,7 +40,10 @@ let shouldPartiallyParseAs (p: Parser<'t, UserState>) (result: 't) str =
     (parse p str) |> equal result
 
 let toType kind =
-    { SchemaName = ""; Range = None; Kind = kind; TypeName = None; Constraint = None }
+    { SchemaName = ""; Range = None; Kind = kind; TypeName = None; Constraint = None; ComponentName = None }
+
+let toComponentType componentName kind =
+    { SchemaName = ""; Range = None; Kind = kind; TypeName = None; Constraint = None; ComponentName = Some componentName }
 
 let withName name ty =
     { ty with TypeName = Some name }    
@@ -50,6 +53,12 @@ let constrain cs ty =
 
 let toNamedType name = toType >> withName name
 let toConstrainedType c = toType >> constrain c
+
+let mkComponentType (name, ty, defaultValue) =
+    ComponentType(name, { ty with ComponentName = Some name }, defaultValue)
+
+let mkChoiceComponent (name, ty) =
+    (name, { ty with ComponentName = Some name })
 
 let toIndexLineColumn (p: Position) =
     (p.Index, p.Line, p.Column)
@@ -120,10 +129,11 @@ let shouldReadAs expected hexString =
 
     equal expected actual
 
-let shouldReadAsType typeName expected (hexString, types) =
+let shouldReadAsType typeName expected (hexString, moduleDefinition: FsAsn1.Schema.ModuleDefinition) =
     let stream = hexString |> hexStringStream
-    let ctx = AsnContext(stream, (fun typeName -> Map.tryFind typeName types))
-    let el = readElement ctx (Some (Map.find typeName types))
+    let ctx = AsnContext(stream, (fun dummy -> None))
+    ctx.Modules <- [moduleDefinition]
+    let el = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)
     let actual =
         if isDummy expected then convertToDummy el else el
 

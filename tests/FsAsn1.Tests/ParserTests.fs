@@ -124,13 +124,13 @@ let ``parse SET OF type`` () =
 let ``parse simple component`` () =
     "issuer Name" 
     |> shouldParseAs componentType
-        (ComponentType("issuer", referencedType("Name"), None))
+        (mkComponentType("issuer", referencedType("Name"), None))
 
 [<Test>]
 let ``parse optional component with value range`` () =
     "comp INTEGER (0..MAX) OPTIONAL" 
     |> shouldParseAs componentType 
-        (ComponentType("comp", 
+        (mkComponentType("comp", 
             IntegerType([]) 
             |> toConstrainedType            
                 (ValueRange(
@@ -142,7 +142,7 @@ let ``parse optional component with value range`` () =
 let ``parse explitly tagged component with default value`` () =
     "version [0] EXPLICIT Version DEFAULT v1" 
     |> shouldParseAs componentType
-        (ComponentType("version", 
+        (mkComponentType("version", 
             TaggedType(None, 0, Some Explicit, referencedType("Version")) |> toType, 
             defaultValue(ReferencedValue("v1"))))
             
@@ -150,7 +150,7 @@ let ``parse explitly tagged component with default value`` () =
 let ``parse implictly tagged optional component`` () =
     "issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL" 
     |> shouldParseAs componentType
-        (ComponentType("issuerUniqueID", 
+        (mkComponentType("issuerUniqueID", 
             TaggedType(None, 1, Some Implicit, referencedType("UniqueIdentifier")) |> toType, 
             optional))
 
@@ -158,13 +158,15 @@ let ``parse implictly tagged optional component`` () =
 let ``parse BIT STRING component`` () =
     "signatureValue BIT STRING" 
     |> shouldParseAs componentType
-        (ComponentType("signatureValue", BitStringType |> toType, None))
+        (mkComponentType("signatureValue", BitStringType |> toType, None))
     
 [<Test>]    
 let ``parse BOOLEAN component with default value`` () =
     "critical    BOOLEAN DEFAULT FALSE" 
     |> shouldParseAs componentType
-        (ComponentType("critical", BooleanType |> toType, defaultValue(BooleanValue(false))))
+        (mkComponentType("critical", BooleanType |> toType, defaultValue(BooleanValue(false))))
+
+
 
 [<Test>]
 let ``parse non-empty sequence`` () =
@@ -174,9 +176,9 @@ let ``parse non-empty sequence`` () =
         signatureValue       BIT STRING  }" 
     |> shouldParseAs sequenceType
         (SequenceType
-            [ComponentType("tbsCertificate", referencedType "TBSCertificate", None)
-             ComponentType("signatureAlgorithm", referencedType "AlgorithmIdentifier", None)
-             ComponentType("signatureValue", BitStringType |> toType, None)])
+            [mkComponentType("tbsCertificate", referencedType "TBSCertificate", None)
+             mkComponentType("signatureAlgorithm", referencedType "AlgorithmIdentifier", None)
+             mkComponentType("signatureValue", BitStringType |> toType, None)])
 
 [<Test>]
 let ``parse type assignment``()=
@@ -186,8 +188,8 @@ let ``parse type assignment``()=
     |> shouldParseAs typeAssignment
         { Name = "Certificate"
           Type = SequenceType
-                    ( [ComponentType("tbsCertificate", referencedType("TBSCertificate"), None);
-                       ComponentType("signatureAlgorithm", referencedType("AlgorithmIdentifier"), None)] )
+                    ( [mkComponentType("tbsCertificate", referencedType("TBSCertificate"), None);
+                       mkComponentType("signatureAlgorithm", referencedType("AlgorithmIdentifier"), None)] )
                  |> toNamedType "Certificate"
           Range = None }
 
@@ -234,8 +236,8 @@ let ``parse sequence type with comments between components`` () =
         }" 
     |> shouldParseAs ptypeKind
             (SequenceType(
-               [ComponentType("extnID", ObjectIdentifierType |> toType, None)
-                ComponentType("critical", BooleanType |> toType, defaultValue(BooleanValue(false)))]))
+               [mkComponentType("extnID", ObjectIdentifierType |> toType, None)
+                mkComponentType("critical", BooleanType |> toType, defaultValue(BooleanValue(false)))]))
 
 [<Test>]
 let ``parse choice type with comments between components`` () =
@@ -248,8 +250,8 @@ let ``parse choice type with comments between components`` () =
         }" 
     |> shouldParseAs ptypeKind
         (ChoiceType(
-            [ ("extnID", ObjectIdentifierType |> toType);
-              ("critical", BooleanType |> toType) ]))
+            [ mkChoiceComponent("extnID", ObjectIdentifierType |> toType)
+              mkChoiceComponent("critical", BooleanType |> toType) ]))
 
 [<Test>]
 let ``parse choice type with constrained alternative`` () =
@@ -258,13 +260,13 @@ let ``parse choice type with constrained alternative`` () =
       }" 
     |> shouldParseAs ptypeKind
         (ChoiceType
-            ( [ ("teletexString", 
-                 referencedType("TeletexString") 
-                 |> constrain 
-                    (SizeConstraint(
-                        ValueRange(
-                            LowerEndpoint.Value(IntegerValue(1I)), 
-                            UpperEndpoint.Max)))) ] ))
+            ( [ mkChoiceComponent("teletexString", 
+                     referencedType("TeletexString") 
+                     |> constrain 
+                        (SizeConstraint(
+                            ValueRange(
+                                LowerEndpoint.Value(IntegerValue(1I)), 
+                                UpperEndpoint.Max)))) ] ))
             
 [<Test>]
 let ``parse INTEGER type`` () = 
@@ -302,7 +304,8 @@ let ``parse CHOICE type`` () =
         i1    T1,
         i2    T2 }" 
     |> shouldParseAs ptypeKind
-        (ChoiceType [ ("i1", referencedType "T1"); ("i2", referencedType "T2") ])
+        (ChoiceType [ mkChoiceComponent("i1", referencedType "T1")
+                      mkChoiceComponent("i2", referencedType "T2") ])
 
 [<Test>]
 let ``parse SEQUENCE OF type with size constraint`` () =
@@ -356,14 +359,14 @@ let ``parse SET``() =
     "SET { name  Name, dateOfBirth  [0] Date }"
     |> shouldParseAs ptypeKind 
         (SetType(
-            [ComponentType("name", ReferencedType "Name" |> toType, None)
-             ComponentType("dateOfBirth", TaggedType(None, 0, None, ReferencedType "Date" |> toType) |> toType, None) ] ))
+            [mkComponentType("name", ReferencedType "Name" |> toType, None)
+             mkComponentType("dateOfBirth", TaggedType(None, 0, None, ReferencedType "Date" |> toType) |> toType, None) ] ))
 
 [<Test>]
 let ``parse component with SEQUENCE OF type`` () =
     "children  [3] IMPLICIT SEQUENCE OF ChildInformation DEFAULT {}" 
     |> shouldParseAs componentType
-        (ComponentType("children",
+        (mkComponentType("children",
             (TaggedType(None, 3, Some TagKind.Implicit, 
                 (AsnTypeKind.SequenceOfType
                     (None, SequenceOfType.SequenceOfType(referencedType("ChildInformation")))) |> toType)) |> toType,

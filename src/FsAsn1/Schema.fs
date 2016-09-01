@@ -29,6 +29,7 @@ and AsnType =
       Constraint: Constraint option
       TypeName: string option
       SchemaName: string
+      ComponentName: string option
       Range: (int * int) option }
 and ComponentType = 
     | ComponentType of string * AsnType * NamedTypeModifier option
@@ -88,5 +89,17 @@ and ModuleDefinition =
       TypeAssignments: Map<string, TypeAssignment>
       ValueAssignments: Map<string, ValueAssignment>
       Imports: ModuleImport list
-      Range: (int * int) option }
+      Range: (int * int) option } 
+    with
+        member __.TryFindType(name) =
+            __.TypeAssignments
+            |> Map.tryFind name 
+            |> Option.map (fun ta -> ta.Type)
+        
+        member __.FindType(name) =
+            match __.TryFindType(name) with
+            | Some(ty) -> ty
+            | None -> failwithf "Module '%s' doesn't contain type '%s'" __.Identifier name
+
+
 

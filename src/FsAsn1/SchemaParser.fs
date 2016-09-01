@@ -152,7 +152,7 @@ let namedTypeModifier =
 
 let componentType = 
     namedType .>>. opt namedTypeModifier
-    |>> fun ((n,t), m) -> ComponentType(n, t, m)
+    |>> fun ((n,t), m) -> ComponentType(n, { t with ComponentName = Some n }, m)
 
 let comment = 
     (pstring "--" >>. skipManyTill anyChar (skipString "--" <|> skipNewline) .>> spaces)
@@ -184,7 +184,7 @@ let setOfType =
 let alternativeTypeList = commaSepListWithComments namedType
 let alternativeTypeLists = alternativeTypeList
 let choiceType = 
-    (str_ws "CHOICE" >>. inBraces alternativeTypeLists) |>> ChoiceType
+    (str_ws "CHOICE" >>. inBraces alternativeTypeLists) |>> ((List.map (fun (name, cty) -> (name, { cty with ComponentName = Some name }))) >> ChoiceType)
 
 let withRange p = 
     pipe3 getPosition p (getPosition .>>. getUserState) 
@@ -225,7 +225,8 @@ let ptypeKind =
 ptypeRef :=
     withRange (ptypeKind .>>. opt pconstraint)  
     |>> (fun (r,(kind, cs)) -> 
-          { Kind = kind; 
+          { Kind = kind;
+            ComponentName = None; 
             SchemaName = ""; 
             Range = r; 
             TypeName = None;

@@ -52,12 +52,27 @@ type AsnBoundedStream(stream: IAsnStream, position: int32, limit: int32) =
 let createBoundedStream stream (expectedBytes: int32): IAsnStream =    
     AsnBoundedStream(stream, stream.Position, stream.Position + expectedBytes) :> IAsnStream
 
+//TODO remove lookupType
 type AsnContext(stream: IAsnStream, lookupType: string -> Schema.AsnType option) =
     member __.Stream with get() = stream
-    member __.LookupType(name) = lookupType name
+    member __.LookupType(name) =         
+        __.Modules
+        |> List.tryPick (fun md -> Map.tryFind name md.TypeAssignments)
+        |> Option.map (fun ta -> ta.Type)
+    member __.ResolveType(ty) =
+        match ty.Kind with
+        | ReferencedType(name) -> 
+            match __.LookupType(name) with
+            | None -> ty
+            | Some(ty2) -> __.ResolveType(ty2)
+        | _ -> ty
+
     member __.WithBoundedStream(expectedBytes: int32) =
-        AsnContext(createBoundedStream stream expectedBytes, lookupType)
-    
+        let ctx = AsnContext(createBoundedStream stream expectedBytes, lookupType)
+        ctx.Modules <- __.Modules
+        ctx
+    member val Modules: ModuleDefinition list = [] with get, set
+
 let decodeAsnClass b : AsnClass =
     match b with
     | 0b00 -> AsnClass.Universal
@@ -211,6 +226,13 @@ let toAsnClass cls =
     | Some Application -> AsnClass.Application
     | None -> AsnClass.ContextSpecific
 
+let toTagClass cls = 
+    match cls with
+    | AsnClass.Universal -> Some Universal
+    | AsnClass.Private -> Some Private
+    | AsnClass.Application -> Some Application
+    | AsnClass.ContextSpecific -> None
+
 type TypeTag =
     | UniversalTag of AsnClass * TagNumber
     | ExplicitlyTaggedType of AsnClass * TagNumber * AsnType
@@ -256,8 +278,7 @@ let rec toExpectedTag (ctx: AsnContext) (ty: AsnTypeKind) =
         | Some ty -> toExpectedTag ctx ty.Kind
         // We don't know the referenced type definition, so we can't tell anything about its tag or class
         | None -> UnresolvedTypeTag(name)
-    
-
+   
 let matchChoiceComponent (ctx: AsnContext) (header: AsnHeader) (components: (string * AsnType) list) =
     components
     |> List.tryFind (fun (_, cty) ->
@@ -267,32 +288,85 @@ let matchChoiceComponent (ctx: AsnContext) (header: AsnHeader) (components: (str
             | ImplicitlyTaggedType(cls, tag, _) ->
                 (cls, tag) = (header.Class, header.Tag)                
             | UnresolvedTypeTag(name) -> 
-                failwithf "Cannot read CHOICE type with a component of unknown type %s" name
+                //TODO log
+                false                
             | AnyTag -> 
                 failwith "Cannot read CHOICE type with a component of ANY type"
             | ChoiceComponentTag(_) -> 
                 failwith "TODO Not implemented yet") 
-    |> Option.map snd
-    |> resolveType ctx
+    |> Option.map (fun (name, cty) -> ctx.ResolveType cty)
 
-let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (components: ComponentType list) = 
-    match components with
-    | [] ->
-        None, []
-    | ComponentType(_, ty, None) :: rest ->
-        Some ty, rest
-    | ComponentType(_, ty, Some (NamedTypeModifier.Default _)) :: rest
-    | ComponentType(_, ty, Some NamedTypeModifier.Optional) :: rest ->       
+
+let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElements: AsnElement list) =
+    let targetElement = 
+        previous
+        |> List.zip previousElements 
+        |> List.find (fun (el, ComponentType(name, _, _)) -> name = componentName)
+        |> fst
+
+    let equalsOid (oidParts: AsnInteger []) value =
+        match value with
+        | OidValue(parts2) ->
+            parts2
+            |> List.map (snd >> Option.get)
+            |> fun p ->                                                    
+                if p.Length <> oidParts.Length then
+                    false
+                else
+                    //TODO find out how to implement IEquatable for BigInteger in Fable plugin
+                    // then this can be simplified to (p = oidParts)
+                    List.forall2 (fun n1 n2 -> n1 = n2) p (List.ofArray oidParts) 
+        | _ -> false
+
+    match targetElement.Value with
+    | ObjectIdentifier(parts) ->
+        let knownValues = 
+            ctx.Modules |> List.collect (fun md -> Map.toList md.ValueAssignments)
+        
+        let namedOidValue = 
+            knownValues
+            |> List.tryFind (fun (name, va) -> equalsOid parts va.Value)                                    
+
+        match namedOidValue with
+        | None -> failwith "None"
+        | Some(name, _) ->
+            // Example: translate id-signedData to SignedData
+            let n = name.Substring("id-".Length)                                
+            let typeName = string (System.Char.ToUpper(n.[0])) + n.Substring(1)                    
+            let newType = 
+                ctx.LookupType typeName                        
+                |> Option.get
+                                                                                              
+            newType
+    | _ ->
+        failwith "ANY type must refer to a component of OBJECT IDENTIFIER type"      
+
+
+let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previous: ComponentType list, next: ComponentType list) (previousElements: AsnElement list) = 
+    
+    match next with
+    | [] ->        
+        None, previous, []
+    | (ComponentType(_, ty, None) as cty) :: rest ->
         match toExpectedTag ctx ty.Kind with
-        | UniversalTag(cls, tag)
+        | ExplicitlyTaggedType(cls, tag, { Kind = AnyType(Some(componentName)) }) ->
+            let newType = matchAnyTypeDefinedBy ctx componentName previous previousElements
+
+            Some { ty with Kind = TaggedType(toTagClass cls, tag, Some TagKind.Explicit, newType) }, cty :: previous, rest
+        | _ ->
+            Some ty, cty :: previous, rest
+    | (ComponentType(name, ty, Some (NamedTypeModifier.Default _)) as cty) :: rest
+    | (ComponentType(name, ty, Some NamedTypeModifier.Optional) as cty) :: rest ->       
+        match toExpectedTag ctx ty.Kind with                    
+        | UniversalTag(cls, tag)                    
         | ExplicitlyTaggedType(cls, tag, _)
         | ImplicitlyTaggedType(cls, tag, _) ->
             if (cls, tag) = (header.Class, header.Tag) then
-                Some ty, rest
+                Some ty, cty :: previous, rest
             else
-                matchSequenceComponentType ctx header rest
+                matchSequenceComponentType ctx header (previous, rest) previousElements
         | UnresolvedTypeTag(_) -> failwith "Not implemented yet"
-        | AnyTag -> Some ty, rest
+        | AnyTag -> Some ty, previous, rest
         | ChoiceComponentTag(cs) -> 
             failwith "Not implemented yet"
         
@@ -304,7 +378,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
             if stream.CanRead(1) then                            
                 let position = stream.Position
                 let header = readHeader stream
-                let ty, newState = tryFindType header state
+                let ty, newState = tryFindType header state acc
                 let ty = resolveType ctx ty
                 let v = readValue ctx header ty
                 let el = makeElement(header, v, position, ty)
@@ -314,13 +388,17 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
         recurse [] initialState
             
     let readElementsNoState tryFindType =
-        readElements (fun h _ ->  tryFindType h, ()) ()
+        readElements (fun h _ _ ->  tryFindType h, ()) ()
 
     match ty with
     | Kind(SequenceType components) ->
-        readElements (fun header components ->
-            matchSequenceComponentType ctx header components            
-        ) components
+        readElements (fun header components previousElements ->
+            let cty, previous, next = matchSequenceComponentType ctx header components previousElements
+            
+            cty, (previous, next)
+                        
+        ) ([], components)
+
     | Kind(AsnTypeKind.SequenceOfType(_, SequenceOfType.SequenceOfType(ty))) ->
         readElementsNoState (fun header -> Some ty)        
     | Kind(SetType components) ->
@@ -341,7 +419,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                         | [value] -> value
                         | _ -> failwithf "Multiple components with the same class and tag: %A" key)
         |> Map.ofList
-        |> readElements (fun header componentMap ->
+        |> readElements (fun header componentMap previousElements ->
             let key = (header.Class, header.Tag)
             match Map.tryFind key componentMap with
             | Some(ty) ->
@@ -477,7 +555,9 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
             match matchChoiceComponent ctx h components with
             | Some cty ->
                 readValue ctx h (Some cty)
-            | None -> failwithf "Cannot find matching CHOICE component"            
+            | None -> 
+                readAsUnknownType()
+                //failwithf "Cannot find matching CHOICE component"            
         | None ->
             readWithNoType()
     | Indefinite -> failwith "Not supported yet"    
@@ -488,3 +568,18 @@ and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let ty = resolveType ctx ty    
     let v = readValue ctx header ty
     makeElement(header, v, position, ty)
+
+
+//TODO rename TypeName to AssignedName
+//TODO add nameOfType as a property to AsnType
+
+let nameOfType (ty: AsnType) =
+    match ty.TypeName, ty.Kind with
+    | Some(typeName), _ -> Some(typeName)
+    | None, FsAsn1.Schema.ReferencedType(n) -> Some n
+    | _, _ -> None
+  
+let componentName (ctx: AsnContext) (el: AsnElement) (parentElements: AsnElement list) =
+    match el.SchemaType with    
+    | Some({ ComponentName = Some name }) -> Some name
+    | _ -> None
