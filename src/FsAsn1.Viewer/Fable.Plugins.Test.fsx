@@ -64,6 +64,8 @@ type BigIntegerPlugin() =
                     bigIntProp "zero"                    
                 | "get_One", [] ->
                     bigIntProp "one"
+                | "Equals", [Type (EntFullName("System.Numerics.BigInteger"))] ->
+                    icall "equals"
                 | _ ->
                     None
             | "Microsoft.FSharp.Core.Operators" ->
@@ -84,6 +86,10 @@ type BigIntegerPlugin() =
                     [Type (EntFullName("System.Numerics.BigInteger")); 
                      Type (EntFullName("System.Numerics.BigInteger"))] ->
                     emit info "$0.compare($1) < 0" info.args |> Some
+                | "op_Equality", 
+                    [Type (EntFullName("System.Numerics.BigInteger")); 
+                     Type (EntFullName("System.Numerics.BigInteger"))] ->
+                    icall "equals"
                 | _ -> None
             | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
                 match info.methodName with
@@ -198,6 +204,18 @@ type ViewerPlugin() =
             let icall = Helper.icall com info
 
             match info.ownerFullName with
+            | "System.Char" ->
+                match info.methodName, info.args with
+                | "ToUpper", [Type (Fable.Type.String _)] ->
+                     emit "$0.toUpperCase()"
+                | "ToLower", [Type (Fable.Type.String _)] ->
+                     emit "$0.toLowerCase()"
+                | "IsLower", [Type (Fable.Type.String _)] ->
+                     emit "$0 >= 'a' && $0 <= 'z'"
+                | "IsUpper", [Type (Fable.Type.String _)] ->
+                     emit "$0 >= 'A' && $0 <= 'Z'"
+                | _ ->
+                    None
             | "System.Text.Encoding" ->
                 match info.methodName, info.args with
                 | "get_ASCII", [] ->
