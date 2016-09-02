@@ -281,8 +281,78 @@ let ``read SSL certificate``() =
     CollectionAssert.IsEmpty(unknownElements element)    
     CollectionAssert.IsEmpty(elementsWithoutSchemaType element)
 
+let elementsWithMissingComponentName (element: AsnElement) =
+    let processElement el children = 
+        let childrenResults = 
+            children
+            |> Array.toList
+            |> List.map (fun f -> f [el])
+            |> List.concat
+                                
+        fun parents ->                   
+            match parents with
+            | { SchemaType = Some { Kind = FsAsn1.Schema.SequenceType(_) }} :: _
+            | { SchemaType = Some { Kind = FsAsn1.Schema.SetType(_) }} :: _
+            | { SchemaType = Some { Kind = FsAsn1.Schema.ChoiceType(_) }} :: _ ->                                 
+                match componentName el with
+                | None ->                            
+                    el :: childrenResults
+                | Some(_) -> childrenResults
+            | _ -> childrenResults
 
+    cataAsn 
+        (fun el -> processElement el [||])            
+        (fun el children -> processElement el children)                
+        element
+        []
 
+let getPath (path: int list) (element: AsnElement) =
+    let rec go path element acc =
+        match element.Value, path with
+        | SimpleValue(_), [] -> element, acc
+        | SimpleValue(_), _ -> failwith "No collection element found"
+        | Collection(_), [] -> element, acc
+        | Collection(children), index :: rest -> go rest children.[index] (element :: acc)
+
+    go path element []
+
+let shouldHaveType expected (element, parents) =
+    let actual = element.SchemaType |> Option.bind (nameOfType)
+    equal (Some expected) actual
+        
+let shouldHaveComponentName expected (element, parents) =
+    let actual = componentName element
+    equal (Some expected) actual
+
+[<Test>]
+let ``read PSSSignDataSHA1.sig``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc3852.txt")
+    let md = FsAsn1.SchemaParser.parseModuleDefinition str 0
+
+    let str2 = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
+    let md2 = FsAsn1.SchemaParser.parseModuleDefinition str2 0
+
+    let s = md.Value.TypeAssignments    
+    let content = System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + @"\Data\BouncyCastle\cms\sigs\PSSSignDataSHA1.sig")
+    let ctx = AsnContext(AsnArrayStream(content, 0), fun dummy -> None)
+
+    ctx.Modules <- [md.Value; md2.Value]
+
+    let element = readElement ctx (md.Value.TryFindType "ContentInfo") 
+    
+    CollectionAssert.IsEmpty(unknownElements element)    
+    CollectionAssert.IsEmpty(elementsWithoutSchemaType element)    
+
+    element |> getPath [1;0;1;0] |> shouldHaveType "DigestAlgorithmIdentifier"
+
+    element |> getPath [1;0;1;0;0] |> shouldHaveComponentName "algorithm"
+
+    element |> getPath [1;0;2;0] |> shouldHaveComponentName "eContentType"
+
+    element |> getPath [1;0;3;0;0] |> shouldHaveComponentName "tbsCertificate"
+
+    CollectionAssert.IsEmpty(elementsWithMissingComponentName element)
+    ()
        
 [<Test>]
 let ``read CHOICE element and correctly assign schema types``() =
