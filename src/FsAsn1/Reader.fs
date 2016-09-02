@@ -209,15 +209,6 @@ let (|Kind|_|) (ty: AsnType option) =
     match ty with
     | Some(t) -> Some(t.Kind)
     | _ -> None
-    
-let resolveType (ctx: AsnContext) (ty: AsnType option) =
-    match ty with
-    | Kind(ReferencedType(name)) -> 
-        match ctx.LookupType name with
-        // assuming that target type is not another ReferencedType
-        | Some(resolvedType) -> Some resolvedType
-        | None -> ty
-    | _ -> ty
 
 let toAsnClass cls = 
     match cls with
@@ -378,8 +369,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
             if stream.CanRead(1) then                            
                 let position = stream.Position
                 let header = readHeader stream
-                let ty, newState = tryFindType header state acc
-                let ty = resolveType ctx ty
+                let ty, newState = tryFindType header state acc                
                 let v = readValue ctx header ty
                 let el = makeElement(header, v, position, ty)
                 recurse (el :: acc) newState
@@ -480,7 +470,7 @@ and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValue =
         printfn "Unsupported universal class tag '%d'" tag
         stream.ReadBytes(len) |> Unknown
 
-and readValue (ctx : AsnContext) (h: AsnHeader) ty =    
+and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =    
     let (cls, tagNumber, length) = h.Class, h.Tag, h.Length
     
 
@@ -502,7 +492,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
         let ctx = ctx.WithBoundedStream(len)
         let stream = ctx.Stream
 
-        let ty = resolveType ctx ty
+        let ty = ty |> Option.map ctx.ResolveType
 
         let expectedTag = 
             (ty |> Option.map (fun ty -> ty.Kind) |> Option.map (toExpectedTag ctx))
@@ -564,8 +554,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) ty =
 and readElement (ctx: AsnContext) (ty: AsnType option)  =
     let stream = ctx.Stream
     let position = stream.Position
-    let header = readHeader stream
-    let ty = resolveType ctx ty    
+    let header = readHeader stream    
     let v = readValue ctx header ty
     makeElement(header, v, position, ty)
 
@@ -579,7 +568,7 @@ let nameOfType (ty: AsnType) =
     | None, FsAsn1.Schema.ReferencedType(n) -> Some n
     | _, _ -> None
   
-let componentName (ctx: AsnContext) (el: AsnElement) (parentElements: AsnElement list) =
+let componentName (el: AsnElement) =
     match el.SchemaType with    
     | Some({ ComponentName = Some name }) -> Some name
     | _ -> None

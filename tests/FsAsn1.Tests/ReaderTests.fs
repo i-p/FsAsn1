@@ -145,7 +145,7 @@ let ``X.690 8.14 Example Type3``() =
                     { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
                       Value = AsnValue.VisibleString("Jones")
                       Offset = 2
-                      SchemaType = schema.TryFindType "Type2" }
+                      SchemaType = FsAsn1.Schema.ReferencedType("Type2") |> toType |> Some }
           Offset = 0
           SchemaType = schema.TryFindType "Type3" }
 
@@ -158,7 +158,7 @@ let ``X.690 8.14 Example Type4``() =
                     { Header = makeHeader(Application, Primitive, 3, Definite(5, 1))
                       Value = AsnValue.VisibleString("Jones")
                       Offset = 2
-                      SchemaType = schema.TryFindType "Type2" }
+                      SchemaType = FsAsn1.Schema.ReferencedType("Type2") |> toType |> Some }
            Offset = 0
            SchemaType = schema.TryFindType "Type4" }
 
