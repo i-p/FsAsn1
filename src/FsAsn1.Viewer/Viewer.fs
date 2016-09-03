@@ -16,9 +16,6 @@ let schemaViewer = document.getElementById "schema-viewer"
 let hexViewer = document.getElementById "hex-viewer"
 let viewer = document.getElementById "viewer"
 
-//TODO HACK - fix
-let mutable resolveType = fun ty -> ty
-
 let inline f1 (f: 'a->'b) = Func<_,_> f
 let inline f2 (f: 'a->'b->'c) = Func<_,_,_> f
 let inline f3 (f: 'a->'b->'c->'d) = Func<_,_,_,_> f
@@ -30,9 +27,10 @@ let charCodeAt (str: string) (i) : byte = failwith "JS only"
 let toHex i : string = failwith "JS only"
 
 
-let dataBase64 = "MIIEhTCCA22gAwIBAgIIXZCIiFIoczAwDQYJKoZIhvcNAQELBQAwSTELMAkGA1UEBhMCVVMxEzARBgNVBAoTCkdvb2dsZSBJbmMxJTAjBgNVBAMTHEdvb2dsZSBJbnRlcm5ldCBBdXRob3JpdHkgRzIwHhcNMTYwNTE4MTEyMTQyWhcNMTYwODEwMTA0NjAwWjBlMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzETMBEGA1UECgwKR29vZ2xlIEluYzEUMBIGA1UEAwwLKi5nb29nbGUuc2swggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCwavWgUn/fa92LE1MP3XrFrrSCa0dcQUP0/NL+dUEQEAgHp/ChSPASHiUsKbSJqzaynAz3999zDAkDpxbZ48KYhh9bfdMCLXHrXz2EdZY0oViH7SzLV2rHpKG/rLF7+tehfkCyDhJ+Oe6IEOiQvX8XKhzHMrDBkCl0OBenJY6fkmGeVXwMy+sosWQiZ7syoLVVrIz9tvvAZqxd7g2hG8mSSKKR/oVL638nbW+D1aysxs2wnMA59jK1d4BvCOdBqTFlSqPwBaf4lLwZ26TGAHZ4Jc+lRhTD9LL7uj9JHDbPypdsGIUEU6PlUEcrJwimP7rNym4OgsafjPY/D3lJ6ai/AgMBAAGjggFTMIIBTzAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwIQYDVR0RBBowGIILKi5nb29nbGUuc2uCCWdvb2dsZS5zazBoBggrBgEFBQcBAQRcMFowKwYIKwYBBQUHMAKGH2h0dHA6Ly9wa2kuZ29vZ2xlLmNvbS9HSUFHMi5jcnQwKwYIKwYBBQUHMAGGH2h0dHA6Ly9jbGllbnRzMS5nb29nbGUuY29tL29jc3AwHQYDVR0OBBYEFMKUTd8jCnhjtHJyt8AAL6YQTocsMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUSt0GFhu89mi1dvWBtrtiGrpagS8wIQYDVR0gBBowGDAMBgorBgEEAdZ5AgUBMAgGBmeBDAECAjAwBgNVHR8EKTAnMCWgI6Ahhh9odHRwOi8vcGtpLmdvb2dsZS5jb20vR0lBRzIuY3JsMA0GCSqGSIb3DQEBCwUAA4IBAQBEVDALCBFaS0tV2e17ozMMYdNEHGfBBWvxCE/Tx9Z3Dy5F2ZwTz8gdetpjAs2jBynmWWQgs0Z8/246bWPflvw/pcVrdZu+KWvKBioXKiE/MVIR//h72WOAWcLOkxxW60E+UsIqVtVxnHuynd32FeU1ft0COh2AWZ2C8TTvGTGL5n3LY5WDCfQF8MIq4o64fdDM+bgcSRwHH2c1k5uWXfR3kuii2XkzuE1+8LGsDPTadRlQSzAZM0l3Zf0SNwHPLDzMS91W3bnMfJ+y28c5ExZH+Op/X1NpDnOUQEbLgexS2Jq8xFcGo/bZ9w8ZnODVccqid+wWaR3OwXJ/TtEV4C8Z"
+//let dataBase64 = "MIIEhTCCA22gAwIBAgIIXZCIiFIoczAwDQYJKoZIhvcNAQELBQAwSTELMAkGA1UEBhMCVVMxEzARBgNVBAoTCkdvb2dsZSBJbmMxJTAjBgNVBAMTHEdvb2dsZSBJbnRlcm5ldCBBdXRob3JpdHkgRzIwHhcNMTYwNTE4MTEyMTQyWhcNMTYwODEwMTA0NjAwWjBlMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzETMBEGA1UECgwKR29vZ2xlIEluYzEUMBIGA1UEAwwLKi5nb29nbGUuc2swggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCwavWgUn/fa92LE1MP3XrFrrSCa0dcQUP0/NL+dUEQEAgHp/ChSPASHiUsKbSJqzaynAz3999zDAkDpxbZ48KYhh9bfdMCLXHrXz2EdZY0oViH7SzLV2rHpKG/rLF7+tehfkCyDhJ+Oe6IEOiQvX8XKhzHMrDBkCl0OBenJY6fkmGeVXwMy+sosWQiZ7syoLVVrIz9tvvAZqxd7g2hG8mSSKKR/oVL638nbW+D1aysxs2wnMA59jK1d4BvCOdBqTFlSqPwBaf4lLwZ26TGAHZ4Jc+lRhTD9LL7uj9JHDbPypdsGIUEU6PlUEcrJwimP7rNym4OgsafjPY/D3lJ6ai/AgMBAAGjggFTMIIBTzAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwIQYDVR0RBBowGIILKi5nb29nbGUuc2uCCWdvb2dsZS5zazBoBggrBgEFBQcBAQRcMFowKwYIKwYBBQUHMAKGH2h0dHA6Ly9wa2kuZ29vZ2xlLmNvbS9HSUFHMi5jcnQwKwYIKwYBBQUHMAGGH2h0dHA6Ly9jbGllbnRzMS5nb29nbGUuY29tL29jc3AwHQYDVR0OBBYEFMKUTd8jCnhjtHJyt8AAL6YQTocsMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUSt0GFhu89mi1dvWBtrtiGrpagS8wIQYDVR0gBBowGDAMBgorBgEEAdZ5AgUBMAgGBmeBDAECAjAwBgNVHR8EKTAnMCWgI6Ahhh9odHRwOi8vcGtpLmdvb2dsZS5jb20vR0lBRzIuY3JsMA0GCSqGSIb3DQEBCwUAA4IBAQBEVDALCBFaS0tV2e17ozMMYdNEHGfBBWvxCE/Tx9Z3Dy5F2ZwTz8gdetpjAs2jBynmWWQgs0Z8/246bWPflvw/pcVrdZu+KWvKBioXKiE/MVIR//h72WOAWcLOkxxW60E+UsIqVtVxnHuynd32FeU1ft0COh2AWZ2C8TTvGTGL5n3LY5WDCfQF8MIq4o64fdDM+bgcSRwHH2c1k5uWXfR3kuii2XkzuE1+8LGsDPTadRlQSzAZM0l3Zf0SNwHPLDzMS91W3bnMfJ+y28c5ExZH+Op/X1NpDnOUQEbLgexS2Jq8xFcGo/bZ9w8ZnODVccqid+wWaR3OwXJ/TtEV4C8Z"
+let exampleCmsData = "MIINDQYJKoZIhvcNAQcCoIIM/jCCDPoCAQExCzAJBgUrDgMCGgUAMAsGCSqGSIb3DQEHAaCCCv0wggNYMIICQKADAgECAhAQAAAAAACwAAAAAAAAAAEtMA0GCSqGSIb3DQEBBQUAMD4xCzAJBgNVBAYTAkJFMR4wHAYDVQQDExVGYWtlIFNtYWxzIENpdGl6ZW4gQ0ExDzANBgNVBAUTBjIwMDkwMjAeFw0wOTA4MTAwOTA1MDNaFw0xMDA4MTAwOTA1MDNaMCsxCzAJBgNVBAYTAkJFMQwwCgYDVQQFEwMwMDcxDjAMBgNVBAMTBXVzZXIxMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvqdDTVtoB8EfoWQzRE2uiWlxQNXWFCEcpIrD502BQ3CXpFkw84/69ha1YnC0Coow2Q1po5VTgzCT4ggbL/nts5+GleFtCDY5bnQMzySNVzUxIXxEC0QDy6eNaLXVEkoObC1hXoaxYqJGQAngEiVYLYSMOcOJMria+1VRPIDTvmsEKYclPPzDYvgRJdtEwvGmXft8PjOWKIO/+zpidf4kzvWTt5ZbZQwk+7n57QwzS+RV4LRFP8KeZuKSTCV4UEU7xKYpu40Aalv7dq3NQjwzcQKcwl0YtVFh+qzt431V5M+9D9xL68MCCj6uNYxAf+0gzF0GVNBaP21OjGfyxZ9YswIDAQABo2UwYzAJBgNVHRMEAjAAMAsGA1UdDwQEAwIEsDAdBgNVHQ4EFgQU5qN9MiqIZk9O3CTh8FGKg2hmFpMwHwYDVR0jBBgwFoAUczmhNZMbRCgypg1fq+qUWhNmIlwwCQYDVR0RBAIwADANBgkqhkiG9w0BAQUFAAOCAQEApHrc/QvZiL+xirdo8GABsjkW8z5XbJ4Q4+mJ93Awwcp6VNQQLp8mKnqIEUDpgQT99g/tvc3L+0ukQGRJdxBgXDO1VJ/YTXLkML4Kpgz5LiCB3usvmrdPYi94li89pMImejT/DoimdhyVqmPrIqD7cxymY5BoX/PxMftHx4FMeLct7WIb6bbDVYwnGYe8HX0fw0rC/QdkT7ldiQUNTLkpnPlHDCNVmls03eaYK44iInFPa5uteF8Xu5P6HAUp0+oJMyvR5268wD3a0WdYusTX7gjjo/LbBczQNwv/2hEC1rwk/A7o1WgRyud+jxwx9zEX3S0PmUIMSrX345cqfgxqvjCCBAUwggLtoAMCAQICCQDXHNY14G8+xTANBgkqhkiG9w0BAQUFADAqMQswCQYDVQQGEwJCRTEbMBkGA1UEAxMSRmFrZSBTbWFscyBSb290IENBMB4XDTA5MDMzMDEyNTg1NloXDTEwMDMzMDEyNTg1NlowPjELMAkGA1UEBhMCQkUxHjAcBgNVBAMTFUZha2UgU21hbHMgQ2l0aXplbiBDQTEPMA0GA1UEBRMGMjAwOTAyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvaKQT1rTm5qeJEhcvY1dXuGYMOehWiE+pHPtQTNmr4tcbmTxlNBWz8rAwfeFDdmvdY8mOwXjtL0ChtJIGhRb+nNGJBELtgFSl3Keeqy055AfvoEKIg/AHOR6Amhh9eld7vxFrn2e6cciQaAuUfj/ppl4UBxb5GA936vxQDR7HjwWTkrwoRwTx3BKLRQIlG/nN6g8GylMc6DYHBh/4XjH+YD/WS2HtVdG4SBjdHKWQtCff5xXVJdVyhVhX4zV1E4TeXgLwZ5TqdLaVJ1bRGfupU0JRpv80aQr2CZ+U11qFwKb41OwfsIl0ffKbrdoNU9Sv3WX/OWsHBMF9iH2lG0cCwIDAQABo4IBGDCCARQwHQYDVR0OBBYEFHM5oTWTG0QoMqYNX6vqlFoTZiJcMB8GA1UdIwQYMBaAFP47TNDUiB8b8hbzZFK+iul5S82WMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDBDARBglghkgBhvhCAQEEBAMCAAcwRgYDVR0gBD8wPTA7BgZgOAEBAQIwMTAvBggrBgEFBQcCARYjaHR0cDovL3JlcG9zaXRvcnkuZmFrZS1laWQuc21hbHMuYmUwNwYDVR0fBDAwLjAsoCqgKIYmaHR0cDovL2NybC5mYWtlLWVpZC5zbWFscy5iZS9zbWFscy5jcmwwDQYJKoZIhvcNAQEFBQADggEBAE2HKBypngDFT1AIcvsit4y68nDT5D9dVJPEPleR1ht2XqIe1LhvhsAkYmhATzxFfMzM2tvpR+BRqzGgqCQNclAtisPQ2M9uDFrsSlCukFnJ/6+KNI9P3ubnqB6+PLbNjf3yPZBAtmHPSwUiao5UG6nVE2m07fF9UmIdKbiwPwbpJBw9xWkXwxGJg1PoYP723oI/JIkkme+GUssFvATGPWBrvmf2LItVMQVXbMpkDVjWYbVQ7EM8gYpVHhY9QD92R0vPqEYZsTwz41f4L69Xh2MSmUJq1s7Ayl7LI7xdf7OP1NLtyVJ/iGkFjlDVL4AmUffejP8PNs22MEMgEClNnDQwggOUMIICfKADAgECAgkA1xzWNeBvPsMwDQYJKoZIhvcNAQEFBQAwKjELMAkGA1UEBhMCQkUxGzAZBgNVBAMTEkZha2UgU21hbHMgUm9vdCBDQTAeFw0wOTAzMzAxMjM2MDZaFw0xMDAzMzAxMjM2MDZaMCoxCzAJBgNVBAYTAkJFMRswGQYDVQQDExJGYWtlIFNtYWxzIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDL5SGzqI565zRT7SS+m/rbt0TGoxCc6+eVQWnymX/eu/Ci/M6zlNecAoEGLwnOZFSgQXqUmwoebt/rxyf4EUIxGvkazkAS4cNVobC04A0JR6N/zcExv5J/KlGpZF7GLkVWI4mJ8gDv327voL+rtsCbIfQY15NfqX/u1Hjzs9ijcHjQr2cBcZunthh9ckur7m2OETjx6sgte3K400daH7Ye1A9eakQ67ebkLSgnl1tIQgRzgmT87neSjTbf3fPCbSAVmpqyvwVAlPpT8NbAs2ZeB6KOYFVmecQasRfiTRZrmkO/QdQd8F8cbPcOgOMV/Pd/9SnRkqtg+KKrlBxS/xfrAgMBAAGjgbwwgbkwHQYDVR0OBBYEFP47TNDUiB8b8hbzZFK+iul5S82WMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDBDARBglghkgBhvhCAQEEBAMCAAcwRQYDVR0gBD4wPDA6BgVgOAEBATAxMC8GCCsGAQUFBwIBFiNodHRwOi8vcmVwb3NpdG9yeS5mYWtlLWVpZC5zbWFscy5iZTANBgkqhkiG9w0BAQUFAAOCAQEAgiLxdJtLj17iisGrFOl/RfB/u0xOkfQA+Zc9XkC4V826k+cioyJPC0OuZbF4/jAUycz68hGA6NOXrQJO6BSb2qh1h7BjfSPV/5GkAAhMUg1VvjyrbbeX8ATwPiEhAML902UkC82Hh3pEhGIueDTmfxDqhcK3PYDuZsDlH9DCscfaiRkfzw+gF7gHAksOkqqDs3AWTs/7iJBsr7HL8pb+GrfTHLEQGhY8mo+0TCfxbzK9EN021cpCPAT9IcaAVFT64PNvJsE3sGvghRW8QkorZH290fYTKidOG1bXakuKbzFcyp8Be1hdm1gkcUAMjf0rBVfgeETGItcDUyLYhDRbJjGCAdgwggHUAgEBMFIwPjELMAkGA1UEBhMCQkUxHjAcBgNVBAMTFUZha2UgU21hbHMgQ2l0aXplbiBDQTEPMA0GA1UEBRMGMjAwOTAyAhAQAAAAAACwAAAAAAAAAAEtMAkGBSsOAwIaBQCgXTAYBgkqhkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0wOTA5MDkxNDU2NTdaMCMGCSqGSIb3DQEJBDEWBBQPe5wXeaVs3g3uxZHaEU5Zpo2zATANBgkqhkiG9w0BAQowAASCAQBuEo+lpf7Vc8UnT7IGXyqUqh2FKgG6awPw51228RZ/4tFbzdfMPlF91J3+dpVTBmAk34ZSgA5AyP8h0UFR5dMEipBMFXu0InlbdbChfrLkzzJg52mWx25Zw9BY8NNbZrMlqJJc/840RU8ed3CFGP/l/1uTMQOlAXrTIodQV6x6IqUJiDTxjtffiNjtuEZ62HET7BO8SuMGH5BEazQpIjBht1P1ZB2NSYoNuWMWdsK+2g/ucfhYKYe7cjKgK9iOaWbn3v2Mxvjx9GKt8Fnm+s6vlKnI6d7FidgydBV4DsfzAVMcYhWOMP7rR+ECjMUiUGf8F3E4DwMZXBXqNJ3mh28U"
 
-let byteString = window.atob(dataBase64)
+let byteString = window.atob(exampleCmsData)
 
 let byteArray = Array.zeroCreate<byte>(byteString.Length)
 
@@ -227,23 +225,7 @@ viewer.addEventListener_click(f1 (fun e ->
     withElement 'S' n selectId
     box ()), false)
 
-let nameOfType (ty: AsnType) =
-    match ty.Kind with
-    | ReferencedType(n) -> Some n
-    | _ -> defaultArg (Some ty.TypeName) None
-
-let componentName (ty: AsnType) parentTy =
-    let ty = resolveType ty
-    match parentTy with
-    | None -> None
-    | Kind (SequenceType cs) ->
-        match List.tryFind (fun (ComponentType(n, cty, _)) -> Object.ReferenceEquals(resolveType cty, ty)) cs with
-        | Some(ComponentType(n, _, _)) -> Some n
-        | None -> failwith "Component not found"
-    | _ -> None
-
-let typeNameEl (ty: AsnType option) =
-    let ty = Core.Option.map resolveType ty
+let typeNameEl (ty: AsnType option) =    
     ty 
     |> Core.Option.bind nameOfType
     |> Core.Option.map (fun name -> 
@@ -253,9 +235,9 @@ let typeNameEl (ty: AsnType option) =
         el?href <- "#t-" + name
         el)
 
-let componentNameEl (ty: AsnType option) (parentTy: AsnType option) =
-    ty
-    |> Core.Option.bind (fun t -> componentName t parentTy)
+//TODO remove ctx and parentElements
+let componentNameEl (ctx: AsnContext) (el: AsnElement) (parentElements: AsnElement list) =
+    componentName el
     |> Core.Option.map (fun n ->
         let el = document.createElement("span")
         el.textContent <- n
@@ -268,7 +250,7 @@ let makeSpan className text =
     el.className <- className
     el
 
-let elInfo (asnElement: AsnElement) (parentAsnElement: AsnElement option) =
+let elInfo (ctx: AsnContext) (asnElement: AsnElement) (parentAsnElements: AsnElement list) =
     let el = document.createElement "div"
     let length = asnElement.Header.Length
 
@@ -340,7 +322,7 @@ let elInfo (asnElement: AsnElement) (parentAsnElement: AsnElement option) =
             Some checkbox, Some label
 
     let typeNameEl = typeNameEl asnElement.SchemaType
-    let compNameEl =   componentNameEl asnElement.SchemaType (FSharp.Core.Option.bind (fun (m: AsnElement) -> m.SchemaType) parentAsnElement)    
+    let compNameEl = componentNameEl ctx asnElement parentAsnElements
     let asnTypeEl = typeStr |> makeSpan "s-asn-type"
     let valueEl = valueStr |> Core.Option.map (makeSpan "s-value")
 
@@ -354,39 +336,30 @@ let elInfo (asnElement: AsnElement) (parentAsnElement: AsnElement option) =
 
     el    
 
-let makeStructureDom (parentEl: HTMLElement) (asnElement: AsnElement) =
+let makeStructureDom (ctx: AsnContext) (parentEl: HTMLElement) (asnElement: AsnElement) =
     let fSimple (el: AsnElement) = 
-        fun parent -> 
-            elInfo el parent
+        fun parents -> 
+            elInfo ctx el parents
 
-    let fCollection (el: AsnElement) (children: (AsnElement option -> HTMLElement)[]) = 
-        let childrenEl = children |> Array.map (fun c -> c (Some el))
-
-        fun parent ->
-            let dom = elInfo el parent
+    let fCollection (el: AsnElement) (children: (AsnElement list -> HTMLElement)[]) =                 
+        fun parents ->
+            let newParents = el :: parents
+            let childrenEl = children |> Array.map (fun c -> c newParents)
+            let dom = elInfo ctx el parents
             childrenEl |> Array.iter (fun c -> dom.appendChild c |> ignore)
             dom
 
-    cataAsn fSimple fCollection asnElement None
+    cataAsn fSimple fCollection asnElement []
 
-let read (ts: Map<string,TypeAssignment>) = 
+let read ([cmsModule;x509Module]: ModuleDefinition list) = 
 
     let br = AsnArrayStream(byteArray, 0)
 
-    let resolveTypeName = (fun n -> if ts.ContainsKey n then Some ts.[n].Type else None)
+    let rdr = AsnContext(br, fun dummy -> None)
 
-    //TODO improve
-    resolveType <- fun ty ->
-        match ty.Kind with
-        | ReferencedType(name) -> 
-            match resolveTypeName name with
-            | None -> ty
-            | Some(ty) -> ty
-        | _ -> ty
-
-    let rdr = AsnContext(br, resolveTypeName)
-
-    let element = readElement rdr (Some ts.["Certificate"].Type)
+    rdr.Modules <- [cmsModule; x509Module]
+        
+    let element = readElement rdr (Some cmsModule.TypeAssignments.["ContentInfo"].Type)
 
     console.log(element)
 
@@ -401,10 +374,11 @@ let read (ts: Map<string,TypeAssignment>) =
 
     hexViewer.querySelector("#bytes").appendChild (makeHexViewerDom element byteArray) |> ignore
 
-    makeStructureDom viewer element |> viewer.appendChild |> ignore
+    makeStructureDom rdr viewer element |> viewer.appendChild |> ignore
 
 let xhr = XMLHttpRequest.Create()
-xhr.``open``("GET", "rfc5280.txt", true)
+//xhr.``open``("GET", "rfc5280.txt", true)
+xhr.``open``("GET", "rfc3852.txt", true)
 xhr.onreadystatechange <- (fun (e) -> 
   if (int xhr.readyState <> 4 || int xhr.status <> 200) then
     box ()
@@ -413,8 +387,8 @@ xhr.onreadystatechange <- (fun (e) ->
 
     console.time("parsing")
 
-    let types = parseAssignments rfcSchema |> fst |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofSeq
-    window?rfc <- types
+    let md = parseModuleDefinition rfcSchema 0 |> Core.Option.get
+    window?rfc <- md
 
     console.timeEnd("parsing")
 
@@ -427,7 +401,7 @@ xhr.onreadystatechange <- (fun (e) ->
 
     let tStart = performance.now()
     
-    types |> Seq.sortBy (fun kvp -> fst kvp.Value.Range.Value) |> Seq.iter (fun kvp -> 
+    md.TypeAssignments |> Seq.sortBy (fun kvp -> fst kvp.Value.Range.Value) |> Seq.iter (fun kvp -> 
         let name = kvp.Key
         let value = kvp.Value
         
@@ -450,12 +424,31 @@ xhr.onreadystatechange <- (fun (e) ->
         | None -> ()
     )
 
-    read types
+    //read md
 
     let tEnd = performance.now()
 
     console.timeEnd("ranges")
     
+
+
+    let xhr2 = XMLHttpRequest.Create()
+    xhr2.``open``("GET", "rfc5280.txt", true)    
+    xhr2.onreadystatechange <- (fun (e) -> 
+      if (int xhr2.readyState <> 4 || int xhr2.status <> 200) then
+        box ()
+      else
+        let rfcSchema = xhr2.responseText        
+        let md2 = parseModuleDefinition rfcSchema 0 |> Core.Option.get
+
+        read [md;md2]
+
+        box ())
+    xhr2.send("")
+
+
+
+
     box())
 
 xhr.send("")
