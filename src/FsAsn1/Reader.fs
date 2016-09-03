@@ -421,11 +421,11 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
         readElementsNoState (fun header -> Some ty)
     | Kind(ReferencedType name) ->
         readCollection ctx (ctx.LookupType name)
-    | None        
-    | _ ->        
-        printfn "Not implemented %A" ty
+    | None ->
         readElementsNoState (fun header -> None)
-                        
+    | _ ->        
+        failwithf "Unexpected collection type %A" ty
+           
 and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValue =
     let stream = ctx.Stream
     match (LanguagePrimitives.EnumOfValue tag) with
