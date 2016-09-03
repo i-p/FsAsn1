@@ -51,6 +51,8 @@
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Fable.Import.Fetch.fs" />
+    <Compile Include="Fable.Helpers.Fetch.fs" />
     <None Include="paket.references" />
     <None Include="package.json" />
     <None Include="Fable.Plugins.Test.fsx" />
