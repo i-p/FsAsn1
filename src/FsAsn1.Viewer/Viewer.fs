@@ -151,6 +151,16 @@ let syncScroll (sourceEl: HTMLElement)
 
     targetContainer.scrollTop <- newScrollTop
     
+let moduleSelector = document.getElementById("module-selector") :?> HTMLSelectElement
+
+let updateSchema () =
+    let selectedValue = moduleSelector.value    
+    let els = schemaViewer.getElementsByClassName("schema")
+
+    for i = 0 to int els.length - 1 do
+        els.Item(i).classList.add("hidden")
+
+    schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
 
 let selectId (el: HTMLElement option) =
     match el with
@@ -163,6 +173,13 @@ let selectId (el: HTMLElement option) =
             let sync = syncScroll set.Structure viewer
                
             sync set.Hex hexViewer
+
+            match set.Schema with
+            | Some(_, el) ->
+                let schemaId = el.parentElement.getAttribute("data-schema-id")
+                moduleSelector.value <- schemaId
+                updateSchema()
+            | None -> ()
 
             match set.Schema with
             | Some(_, el) -> sync el schemaViewer
@@ -430,9 +447,7 @@ let makeSchemaDom info schema =
 
     schemaRootEl.setAttribute("data-schema-id", info.Id)
     schemaRootEl.classList.add("hidden")
-
-    let moduleSelector = document.getElementById("module-selector")
-
+    
     let optionEl = document.createElement("option")
     optionEl.setAttribute("value", info.Id)
     optionEl.textContent <- info.DisplayName
@@ -440,7 +455,6 @@ let makeSchemaDom info schema =
     moduleSelector.appendChild(optionEl) |> ignore
 
     md, schemaRootEl
-
 
 let loadSchemaDom info =
     async {
@@ -453,15 +467,8 @@ let loadSchemaDom info =
     }
 
 
-document.getElementById("module-selector").addEventListener_change(f1(fun e -> 
-    let selectedValue = (e.target :?> HTMLSelectElement).value    
-    let els = schemaViewer.getElementsByClassName("schema")
-
-    for i = 0 to int els.length - 1 do
-        els.Item(i).classList.add("hidden")
-
-    schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
-
+moduleSelector.addEventListener_change(f1(fun e -> 
+    updateSchema()
     box()))
 
 
@@ -477,6 +484,8 @@ async {
         |> Async.Parallel
 
     elements |> Array.iter (fun el -> schemaViewer.appendChild(snd el) |> ignore)    
+
+    updateSchema()
 
     elements |> List.ofArray |> List.map fst |> read
 
