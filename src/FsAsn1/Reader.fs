@@ -52,11 +52,12 @@ type AsnBoundedStream(stream: IAsnStream, position: int32, limit: int32) =
 let createBoundedStream stream (expectedBytes: int32): IAsnStream =    
     AsnBoundedStream(stream, stream.Position, stream.Position + expectedBytes) :> IAsnStream
 
-//TODO remove lookupType
-type AsnContext(stream: IAsnStream, lookupType: string -> Schema.AsnType option) =
+type AsnContext(stream: IAsnStream, modules: ModuleDefinition list) =
+    static member Empty = AsnContext(AsnArrayStream([||], 0), [])
+
     member __.Stream with get() = stream
     member __.LookupType(name) =         
-        __.Modules
+        modules
         |> List.tryPick (fun md -> Map.tryFind name md.TypeAssignments)
         |> Option.map (fun ta -> ta.Type)
     member __.ResolveType(ty) =
@@ -68,10 +69,8 @@ type AsnContext(stream: IAsnStream, lookupType: string -> Schema.AsnType option)
         | _ -> ty
 
     member __.WithBoundedStream(expectedBytes: int32) =
-        let ctx = AsnContext(createBoundedStream stream expectedBytes, lookupType)
-        ctx.Modules <- __.Modules
-        ctx
-    member val Modules: ModuleDefinition list = [] with get, set
+        AsnContext(createBoundedStream stream expectedBytes, modules)        
+    member __.Modules with get() = modules
 
 let decodeAsnClass b : AsnClass =
     match b with

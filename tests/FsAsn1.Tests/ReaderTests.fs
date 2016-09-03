@@ -270,13 +270,10 @@ let elementsWithoutSchemaType =
 let ``read SSL certificate``() =
     let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
     let md = FsAsn1.SchemaParser.parseModuleDefinition str 0
-    let s = md.Value.TypeAssignments
-
-    let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), 
-            (fun str -> if s.ContainsKey str then Some s.[str].Type else None ))
-
-    ctx.Modules <- [md.Value]
-    let element = readElement ctx (Some s.["Certificate"].Type) 
+    
+    let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), [md.Value])
+    
+    let element = readElement ctx (md.Value.TryFindType("Certificate"))
         
     CollectionAssert.IsEmpty(unknownElements element)    
     CollectionAssert.IsEmpty(elementsWithoutSchemaType element)
@@ -334,10 +331,8 @@ let ``read PSSSignDataSHA1.sig``() =
 
     let s = md.Value.TypeAssignments    
     let content = System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + @"\Data\BouncyCastle\cms\sigs\PSSSignDataSHA1.sig")
-    let ctx = AsnContext(AsnArrayStream(content, 0), fun dummy -> None)
-
-    ctx.Modules <- [md.Value; md2.Value]
-
+    let ctx = AsnContext(AsnArrayStream(content, 0), [md.Value; md2.Value])
+    
     let element = readElement ctx (md.Value.TryFindType "ContentInfo") 
     
     CollectionAssert.IsEmpty(unknownElements element)    
@@ -416,7 +411,7 @@ let ``toExpectedTag can return every value of UniversalTag enumeration`` () =
             UniversalTag.UTCTime, ReferencedType("UTCTime")
             UniversalTag.VisibleString, ReferencedType("VisibleString") ]
      
-    let toTag = toExpectedTag (AsnContext(AsnArrayStream([||], 0), fun s -> None))                
+    let toTag = toExpectedTag (AsnContext.Empty)
     let allUniversalTags = Enum.GetValues(typeof<UniversalTag>) |> Seq.cast<UniversalTag>
     
     for expected in allUniversalTags do       

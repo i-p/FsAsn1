@@ -122,7 +122,7 @@ let shouldReadAsLength len hexString =
 
 let shouldReadAs expected hexString =
     let stream = hexString |> hexStringStream
-    let ctx = AsnContext(stream, (fun typeName -> None))
+    let ctx = AsnContext(stream, [])
     let actual =
         let el = readElement ctx None
         if isDummy expected then convertToDummy el else el
@@ -131,8 +131,7 @@ let shouldReadAs expected hexString =
 
 let shouldReadAsType typeName expected (hexString, moduleDefinition: FsAsn1.Schema.ModuleDefinition) =
     let stream = hexString |> hexStringStream
-    let ctx = AsnContext(stream, (fun dummy -> None))
-    ctx.Modules <- [moduleDefinition]
+    let ctx = AsnContext(stream, [moduleDefinition])
     let el = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)
     let actual =
         if isDummy expected then convertToDummy el else el

@@ -355,11 +355,9 @@ let read ([cmsModule;x509Module]: ModuleDefinition list) =
 
     let br = AsnArrayStream(byteArray, 0)
 
-    let rdr = AsnContext(br, fun dummy -> None)
-
-    rdr.Modules <- [cmsModule; x509Module]
-        
-    let element = readElement rdr (Some cmsModule.TypeAssignments.["ContentInfo"].Type)
+    let ctx = AsnContext(br, [cmsModule; x509Module])
+            
+    let element = readElement ctx (Some cmsModule.TypeAssignments.["ContentInfo"].Type)
 
     console.log(element)
 
@@ -374,7 +372,7 @@ let read ([cmsModule;x509Module]: ModuleDefinition list) =
 
     hexViewer.querySelector("#bytes").appendChild (makeHexViewerDom element byteArray) |> ignore
 
-    makeStructureDom rdr viewer element |> viewer.appendChild |> ignore
+    makeStructureDom ctx viewer element |> viewer.appendChild |> ignore
 
 let xhr = XMLHttpRequest.Create()
 //xhr.``open``("GET", "rfc5280.txt", true)
