@@ -42,11 +42,19 @@
             margin: 2px;
         }
 
-        #viewer, #schema-viewer {
+        #viewer {
             float: left;
             width: 30%;
             overflow-y: scroll;
             flex-grow: 1;
+        }
+
+        #schema-viewer {
+            float: left;
+            width: 30%;            
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         #hex-viewer {
@@ -65,12 +73,13 @@
             display: flex;
         }
 
-        #schema-viewer {
+        #schema-viewer .schema {
             white-space: pre;
             font-family: 'Droid Sans Pro', monospace;
             font-size: 13px;
             background-color: #f8fbff;
             padding-left: 10px;
+            overflow-y: scroll;
         }
 
         #schema-viewer .hover {
@@ -166,10 +175,26 @@
             content: "+";
         }
 
-        label {
+        #viewer label {
             display: inline-block;
             width: 15px;
         }
+        
+        .hidden {
+            display: none;
+        }
+
+        #module-section {
+            font-family: 'Open Sans';
+            font-size: 12px;
+            padding: 5px;
+            background-color: #f8fbff;
+        }
+
+        #module-section select {
+            font-family: 'Open Sans';
+        }
+
     </style>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Droid+Sans+Mono" rel="stylesheet">
 </head>
@@ -188,6 +213,11 @@
             <div id="bytes" style="width: 340px;"></div>
         </div>
         <div id="schema-viewer">
+            <div id="module-section">                
+                <label for="module-selector">ASN.1 Module: </label>
+                <select name="module-selector" id="module-selector">                    
+                </select>
+            </div>
         </div>
     </main>
     <script src="build/js/node_modules/core-js/client/core.min.js"></script>  

@@ -374,25 +374,27 @@ let read ([cmsModule;x509Module]: ModuleDefinition list) =
 
     makeStructureDom ctx viewer element |> viewer.appendChild |> ignore
 
-let xhr = XMLHttpRequest.Create()
-//xhr.``open``("GET", "rfc5280.txt", true)
-xhr.``open``("GET", "rfc3852.txt", true)
-xhr.onreadystatechange <- (fun (e) -> 
-  if (int xhr.readyState <> 4 || int xhr.status <> 200) then
-    box ()
-  else
-    let rfcSchema = xhr.responseText
+    
+open Fable.Helpers.Fetch
 
+type SchemaInfo = 
+    { Id: string
+      DisplayName: string
+      Url: string }
+
+let makeSchemaDom info schema =     
     console.time("parsing")
 
-    let md = parseModuleDefinition rfcSchema 0 |> Core.Option.get
-    window?rfc <- md
-
+    let md = parseModuleDefinition schema 0 |> Core.Option.get
+    
     console.timeEnd("parsing")
 
-    schemaViewer.textContent <- rfcSchema
+    let schemaRootEl = document.createElement("div")
+    
+    schemaRootEl.classList.add("schema")
+    schemaRootEl.textContent <- schema
 
-    let mutable textNode = schemaViewer.childNodes.Item(0)
+    let mutable textNode = schemaRootEl.childNodes.Item(0)
     let mutable offset = 0
 
     console.time("ranges")
@@ -416,37 +418,67 @@ xhr.onreadystatechange <- (fun (e) ->
 
             range.surroundContents(span)
 
-            textNode <- schemaViewer.lastChild
+            textNode <- schemaRootEl.lastChild
             offset <- int e
             ()
         | None -> ()
     )
-
-    //read md
-
+    
     let tEnd = performance.now()
 
     console.timeEnd("ranges")
-    
+
+    schemaRootEl.setAttribute("data-schema-id", info.Id)
+    schemaRootEl.classList.add("hidden")
+
+    let moduleSelector = document.getElementById("module-selector")
+
+    let optionEl = document.createElement("option")
+    optionEl.setAttribute("value", info.Id)
+    optionEl.textContent <- info.DisplayName
+
+    moduleSelector.appendChild(optionEl) |> ignore
+
+    md, schemaRootEl
 
 
-    let xhr2 = XMLHttpRequest.Create()
-    xhr2.``open``("GET", "rfc5280.txt", true)    
-    xhr2.onreadystatechange <- (fun (e) -> 
-      if (int xhr2.readyState <> 4 || int xhr2.status <> 200) then
-        box ()
-      else
-        let rfcSchema = xhr2.responseText        
-        let md2 = parseModuleDefinition rfcSchema 0 |> Core.Option.get
-
-        read [md;md2]
-
-        box ())
-    xhr2.send("")
+let loadSchemaDom info =
+    async {
+        let! resp = fetchAsync(info.Url, [])    
+        if resp.Ok then
+            let! text = resp.text() |> Async.AwaitPromise
+            return makeSchemaDom info text
+        else                    
+            return failwithf "ERROR: %d" resp.Status
+    }
 
 
+document.getElementById("module-selector").addEventListener_change(f1(fun e -> 
+    let selectedValue = (e.target :?> HTMLSelectElement).value    
+    let els = schemaViewer.getElementsByClassName("schema")
+
+    for i = 0 to int els.length - 1 do
+        els.Item(i).classList.add("hidden")
+
+    schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
+
+    box()))
 
 
-    box())
+async {
+    let! elements = 
+        [ { Id = "rfc3852"
+            DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
+            Url = "rfc3852.txt" }
+          { Id = "rfc5280"
+            DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
+            Url = "rfc5280.txt" } ]
+        |> List.map loadSchemaDom
+        |> Async.Parallel
 
-xhr.send("")
+    elements |> Array.iter (fun el -> schemaViewer.appendChild(snd el) |> ignore)    
+
+    elements |> List.ofArray |> List.map fst |> read
+
+} |> Async.Start
+
