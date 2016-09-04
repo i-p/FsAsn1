@@ -361,7 +361,10 @@ let ``read CHOICE element and correctly assign schema types``() =
               AttributeType ::= OBJECT IDENTIFIER
               AttributeValue ::= ANY"
               
-    let find name componentName = types.FindType name |> fun ty -> { ty with ComponentName = componentName } |> Some    
+    let find name = types.FindType name |> Some    
+    let referencedType name componentName = 
+        let ty = FsAsn1.Schema.ReferencedType(name) |> toType
+        { ty with ComponentName = componentName } |> Some
 
     (@"30 0D 31 0B 30 09 06 03 55 04 06 13 02 55 53", types)
     |> shouldReadAsType "Name" 
@@ -374,20 +377,19 @@ let ``read CHOICE element and correctly assign schema types``() =
                                                     [| { Header = makeHeader(Universal, Primitive, int UniversalTag.ObjectIdentifier, Definite(3, 1))
                                                          Value = AsnValue.ObjectIdentifier [| 2I; 5I; 4I; 6I |]
                                                          Offset = 6
-                                                         SchemaType = find "AttributeType" (Some "type") }
+                                                         SchemaType = referencedType "AttributeType" (Some "type") }
                                                        { Header = makeHeader(Universal, Primitive, int UniversalTag.PrintableString, Definite(2, 1))
                                                          Value = AsnValue.PrintableString "US"
-                                                         Offset = 11
-                                                         SchemaType = find "AttributeValue" (Some "value") }
+                                                         Offset = 11                                                         
+                                                         SchemaType = referencedType "AttributeValue" (Some "value") }
                                                     |]
                                          Offset = 4
-                                         SchemaType = find "AttributeTypeAndValue" None } |]
+                                         SchemaType = referencedType "AttributeTypeAndValue" None } |]
                          Offset = 2
-                         SchemaType = find "RelativeDistinguishedName" None }
+                         SchemaType = referencedType "RelativeDistinguishedName" None }
                     |]          
           Offset = 0
-          SchemaType = find "Name" None }
-
+          SchemaType = find "Name" }
 
 open FsAsn1.Schema
 
