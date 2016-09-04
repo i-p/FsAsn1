@@ -284,8 +284,7 @@ let matchChoiceComponent (ctx: AsnContext) (header: AsnHeader) (components: (str
                 failwith "Cannot read CHOICE type with a component of ANY type"
             | ChoiceComponentTag(_) -> 
                 failwith "TODO Not implemented yet") 
-    |> Option.map (fun (name, cty) -> ctx.ResolveType cty)
-
+    |> Option.map snd
 
 let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElements: AsnElement list) =
     let targetElement = 

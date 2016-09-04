@@ -29,7 +29,7 @@
         #bytes {
             margin-bottom: 5px;
         }
-        #viewer div {
+        .viewer div {
             margin-left: 15px;
             border-left: 1px solid white;
             border-top: 1px solid white;
@@ -37,7 +37,7 @@
             padding-top: 3px;
         }
 
-        #viewer > div {
+        .viewer > div {
             background-color: #e2ecfa;
             margin: 2px;
         }
@@ -96,20 +96,20 @@
             background-color: rgb(255, 250, 244);
         }
 
-         #hex-viewer .hover {            
+        #hex-viewer .hover {            
             background-color: #ffedd8;
         }
 
-        #viewer .hover {
+        .viewer .hover {
             outline: 2px dotted orange;
         }
 
-        #viewer .selected {
+        .viewer .selected {
             outline: 2px solid orange;
             background-color: rgb(255, 250, 244);
         }
 
-        #viewer .hover {
+        .viewer .hover {
             background-color: #ffedd8;
         }
 
@@ -132,17 +132,17 @@
             display: flex;
         }
 
-        #viewer a, #viewer span {
+        .viewer a, .viewer span {
             display: inline-block;
             margin-right: 10px;
             line-height: 1.5;
         }
 
-        #viewer a {
+        .viewer a {
             color:rgb(0, 0, 238);
         }
 
-        #viewer a:visited {
+        .viewer a:visited {
             color:rgb(0, 0, 238);
         }
 
@@ -154,7 +154,7 @@
             color: gray;
         }
 
-        #viewer {
+        .viewer {
             font-family: 'Open Sans', sans-serif;
             font-size: 13px;
         }
@@ -175,7 +175,7 @@
             content: "+";
         }
 
-        #viewer label {
+        .viewer label {
             display: inline-block;
             width: 15px;
         }
@@ -195,6 +195,14 @@
             font-family: 'Open Sans';
         }
 
+        .s-choice-component .s-type-name {
+            margin-right: 0;
+        }
+
+        .s-choice-component .s-component-name {
+            margin-right: 5px;
+        }
+
     </style>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Droid+Sans+Mono" rel="stylesheet">
 </head>
@@ -203,7 +211,7 @@
         <h1>ASN.1 Viewer</h1>
     </header>
     <main>
-        <div id="viewer">
+        <div id="viewer" class="viewer">
         </div>
         <div id="hex-viewer" style="flex-flow: row wrap">
             <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;">Offset</div>

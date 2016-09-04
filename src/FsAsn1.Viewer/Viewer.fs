@@ -343,7 +343,37 @@ let elInfo (ctx: AsnContext) (asnElement: AsnElement) (parentAsnElements: AsnEle
     let asnTypeEl = typeStr |> makeSpan "s-asn-type"
     let valueEl = valueStr |> Core.Option.map (makeSpan "s-value")
 
-    [checkbox; label; compNameEl; valueEl; typeNameEl; Some asnTypeEl]
+    let choiceComponent = 
+        match (asnElement.SchemaType |> Core.Option.map ctx.ResolveType) with
+        | Some({ Kind = ChoiceType(cs) }) ->
+            matchChoiceComponent ctx asnElement.Header cs        
+        | _ -> None
+
+    let appendTo (targetEl: HTMLElement) el =
+        targetEl.appendChild el |> ignore
+
+    let choiceComponentEl = 
+        choiceComponent
+        |> Core.Option.bind nameOfType
+        |> Core.Option.map(fun name ->
+            let rootEl = document.createElement("span")
+            rootEl.className <- "s-choice-component"
+
+            let el = document.createElement("span")            
+            el.textContent <- choiceComponent.Value.ComponentName.Value
+            el.className <- "s-component-name"
+            
+            let typeEl = document.createElement("a")
+            typeEl.textContent <- name
+            typeEl.className <- "s-type-name"
+            typeEl?href <- "#t-" + name
+                        
+            [document.createTextNode("("); el; typeEl; document.createTextNode(")")] : Node list
+            |> List.iter (appendTo rootEl)
+            
+            rootEl)
+        
+    [checkbox; label; compNameEl; valueEl; typeNameEl; choiceComponentEl; Some asnTypeEl]
     |> List.choose id
     |> List.iter (fun e -> el.appendChild e |> ignore)
 
