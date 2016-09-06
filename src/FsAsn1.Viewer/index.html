@@ -42,14 +42,14 @@
             margin: 2px;
         }
 
-        #viewer {
+        .viewer {
             float: left;
             width: 30%;
             overflow-y: scroll;
             flex-grow: 1;
         }
 
-        #schema-viewer {
+        .schema-viewer {
             float: left;
             width: 30%;            
             flex-grow: 1;
@@ -57,13 +57,13 @@
             flex-direction: column;
         }
 
-        #hex-viewer {
+        .hex-viewer {
             float: left;
             overflow-y: scroll;
             background-color: #f8fbff;
         }
 
-        #hex-viewer {
+        .hex-viewer {
             font-family: 'Droid Sans Mono', monospace;
             font-size: 12px;
             position: relative;
@@ -73,7 +73,7 @@
             display: flex;
         }
 
-        #schema-viewer .schema {
+        .schema-viewer .schema {
             white-space: pre;
             font-family: 'Droid Sans Pro', monospace;
             font-size: 13px;
@@ -82,21 +82,21 @@
             overflow-y: scroll;
         }
 
-        #schema-viewer .hover {
+        .schema-viewer .hover {
             outline: 3px solid #ffd3a0;
             background-color: #ffedd8;
         }
 
-        #hex-viewer .hover {
+        .hex-viewer .hover {
             outline: 2px dotted orange;            
         }
 
-        #hex-viewer .selected {
+        .hex-viewer .selected {
             outline: 3px solid orange;
             background-color: rgb(255, 250, 244);
         }
 
-        #hex-viewer .hover {            
+        .hex-viewer .hover {            
             background-color: #ffedd8;
         }
 
@@ -113,18 +113,18 @@
             background-color: #ffedd8;
         }
 
-        #schema-viewer .hover {            
+        .schema-viewer .hover {            
             outline: 2px dotted orange;
         }
 
-        #schema-viewer .selected {
+        .schema-viewer .selected {
             outline: 2px solid orange;
             background-color: rgb(255, 250, 244);
             display: table;                      
             padding: 5px;
         }
         
-        #schema-viewer .hover {
+        .schema-viewer .hover {
             background-color: #ffedd8;            
         }
 
@@ -203,6 +203,11 @@
             margin-right: 5px;
         }
 
+        .intro {
+            margin: 50px auto;
+            font-family: 'Open Sans';
+        }
+
     </style>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Droid+Sans+Mono" rel="stylesheet">
 </head>
@@ -211,16 +216,33 @@
         <h1>ASN.1 Viewer</h1>
     </header>
     <main>
-        <div id="viewer" class="viewer">
+
+        <div id="intro" class="intro">
+            Select one of the examples:
+            <ul>
+                <li>
+                    <a href="#example=google_ssl.cer">
+                        Google SSL certificate
+                    </a>
+                </li>                
+                <li>
+                    <a href="#example=PSSSignDataSHA1.sig">
+                        Example CMS signed file (BouncyCastle test data)
+                    </a>
+                </li>
+            </ul>            
         </div>
-        <div id="hex-viewer" style="flex-flow: row wrap">
+
+        <div id="viewer" class="viewer hidden">
+        </div>
+        <div id="hex-viewer" class="hex-viewer hidden" style="flex-flow: row wrap;">
             <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;">Offset</div>
             <div style="width: 340px; background-color: #e2ecfa;">00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F</div>
             <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;" id="hex-offsets">
             </div>
             <div id="bytes" style="width: 340px;"></div>
         </div>
-        <div id="schema-viewer">
+        <div id="schema-viewer" class="schema-viewer hidden">
             <div id="module-section">                
                 <label for="module-selector">ASN.1 Module: </label>
                 <select name="module-selector" id="module-selector">                    

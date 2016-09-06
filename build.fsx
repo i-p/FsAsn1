@@ -113,13 +113,18 @@ Target "WebServer" (fun _ ->
         choose [
             Filters.GET >=> choose [ 
                 Filters.path "/" >=> Files.browseFileHome "src/FsAsn1.Viewer/index.html";
-                Filters.path "/rfc5280.txt" >=> Files.browseFileHome "tests/FsAsn1.Tests/Data/rfc5280.txt";
+                Filters.pathScan "/Data/%s" (fun c -> Writers.setMimeType("application/octet-stream") >=> Files.sendFile (Files.resolvePath @"C:\dev\FsAsn1\tests\FsAsn1.Tests\Data" c) false);                
                 Files.browseHome ]
             RequestErrors.NOT_FOUND "Page not found." ]
+
+    let mimeTypes =
+        Writers.defaultMimeTypesMap
+        @@ (function | ".cer" -> Writers.mkMimeType "application/octet-stream" false | _ -> None)
 
     startWebServer { 
         defaultConfig with 
             homeFolder = Some @"C:\dev\FsAsn1"
+            mimeTypesMap = mimeTypes
             logger = Suave.Logging.Loggers.ConsoleWindowLogger(Logging.LogLevel.Debug)
         } app    
 )

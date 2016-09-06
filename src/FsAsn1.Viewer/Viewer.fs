@@ -26,17 +26,13 @@ let charCodeAt (str: string) (i) : byte = failwith "JS only"
 [<Emit("($0).toString(16)")>]
 let toHex i : string = failwith "JS only"
 
+let base64ToByteArray b64 =
+    let byteString = window.atob(b64)
+    let byteArray = Array.zeroCreate<byte>(byteString.Length)
 
-//let dataBase64 = "MIIEhTCCA22gAwIBAgIIXZCIiFIoczAwDQYJKoZIhvcNAQELBQAwSTELMAkGA1UEBhMCVVMxEzARBgNVBAoTCkdvb2dsZSBJbmMxJTAjBgNVBAMTHEdvb2dsZSBJbnRlcm5ldCBBdXRob3JpdHkgRzIwHhcNMTYwNTE4MTEyMTQyWhcNMTYwODEwMTA0NjAwWjBlMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzETMBEGA1UECgwKR29vZ2xlIEluYzEUMBIGA1UEAwwLKi5nb29nbGUuc2swggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCwavWgUn/fa92LE1MP3XrFrrSCa0dcQUP0/NL+dUEQEAgHp/ChSPASHiUsKbSJqzaynAz3999zDAkDpxbZ48KYhh9bfdMCLXHrXz2EdZY0oViH7SzLV2rHpKG/rLF7+tehfkCyDhJ+Oe6IEOiQvX8XKhzHMrDBkCl0OBenJY6fkmGeVXwMy+sosWQiZ7syoLVVrIz9tvvAZqxd7g2hG8mSSKKR/oVL638nbW+D1aysxs2wnMA59jK1d4BvCOdBqTFlSqPwBaf4lLwZ26TGAHZ4Jc+lRhTD9LL7uj9JHDbPypdsGIUEU6PlUEcrJwimP7rNym4OgsafjPY/D3lJ6ai/AgMBAAGjggFTMIIBTzAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwIQYDVR0RBBowGIILKi5nb29nbGUuc2uCCWdvb2dsZS5zazBoBggrBgEFBQcBAQRcMFowKwYIKwYBBQUHMAKGH2h0dHA6Ly9wa2kuZ29vZ2xlLmNvbS9HSUFHMi5jcnQwKwYIKwYBBQUHMAGGH2h0dHA6Ly9jbGllbnRzMS5nb29nbGUuY29tL29jc3AwHQYDVR0OBBYEFMKUTd8jCnhjtHJyt8AAL6YQTocsMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUSt0GFhu89mi1dvWBtrtiGrpagS8wIQYDVR0gBBowGDAMBgorBgEEAdZ5AgUBMAgGBmeBDAECAjAwBgNVHR8EKTAnMCWgI6Ahhh9odHRwOi8vcGtpLmdvb2dsZS5jb20vR0lBRzIuY3JsMA0GCSqGSIb3DQEBCwUAA4IBAQBEVDALCBFaS0tV2e17ozMMYdNEHGfBBWvxCE/Tx9Z3Dy5F2ZwTz8gdetpjAs2jBynmWWQgs0Z8/246bWPflvw/pcVrdZu+KWvKBioXKiE/MVIR//h72WOAWcLOkxxW60E+UsIqVtVxnHuynd32FeU1ft0COh2AWZ2C8TTvGTGL5n3LY5WDCfQF8MIq4o64fdDM+bgcSRwHH2c1k5uWXfR3kuii2XkzuE1+8LGsDPTadRlQSzAZM0l3Zf0SNwHPLDzMS91W3bnMfJ+y28c5ExZH+Op/X1NpDnOUQEbLgexS2Jq8xFcGo/bZ9w8ZnODVccqid+wWaR3OwXJ/TtEV4C8Z"
-let exampleCmsData = "MIINDQYJKoZIhvcNAQcCoIIM/jCCDPoCAQExCzAJBgUrDgMCGgUAMAsGCSqGSIb3DQEHAaCCCv0wggNYMIICQKADAgECAhAQAAAAAACwAAAAAAAAAAEtMA0GCSqGSIb3DQEBBQUAMD4xCzAJBgNVBAYTAkJFMR4wHAYDVQQDExVGYWtlIFNtYWxzIENpdGl6ZW4gQ0ExDzANBgNVBAUTBjIwMDkwMjAeFw0wOTA4MTAwOTA1MDNaFw0xMDA4MTAwOTA1MDNaMCsxCzAJBgNVBAYTAkJFMQwwCgYDVQQFEwMwMDcxDjAMBgNVBAMTBXVzZXIxMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvqdDTVtoB8EfoWQzRE2uiWlxQNXWFCEcpIrD502BQ3CXpFkw84/69ha1YnC0Coow2Q1po5VTgzCT4ggbL/nts5+GleFtCDY5bnQMzySNVzUxIXxEC0QDy6eNaLXVEkoObC1hXoaxYqJGQAngEiVYLYSMOcOJMria+1VRPIDTvmsEKYclPPzDYvgRJdtEwvGmXft8PjOWKIO/+zpidf4kzvWTt5ZbZQwk+7n57QwzS+RV4LRFP8KeZuKSTCV4UEU7xKYpu40Aalv7dq3NQjwzcQKcwl0YtVFh+qzt431V5M+9D9xL68MCCj6uNYxAf+0gzF0GVNBaP21OjGfyxZ9YswIDAQABo2UwYzAJBgNVHRMEAjAAMAsGA1UdDwQEAwIEsDAdBgNVHQ4EFgQU5qN9MiqIZk9O3CTh8FGKg2hmFpMwHwYDVR0jBBgwFoAUczmhNZMbRCgypg1fq+qUWhNmIlwwCQYDVR0RBAIwADANBgkqhkiG9w0BAQUFAAOCAQEApHrc/QvZiL+xirdo8GABsjkW8z5XbJ4Q4+mJ93Awwcp6VNQQLp8mKnqIEUDpgQT99g/tvc3L+0ukQGRJdxBgXDO1VJ/YTXLkML4Kpgz5LiCB3usvmrdPYi94li89pMImejT/DoimdhyVqmPrIqD7cxymY5BoX/PxMftHx4FMeLct7WIb6bbDVYwnGYe8HX0fw0rC/QdkT7ldiQUNTLkpnPlHDCNVmls03eaYK44iInFPa5uteF8Xu5P6HAUp0+oJMyvR5268wD3a0WdYusTX7gjjo/LbBczQNwv/2hEC1rwk/A7o1WgRyud+jxwx9zEX3S0PmUIMSrX345cqfgxqvjCCBAUwggLtoAMCAQICCQDXHNY14G8+xTANBgkqhkiG9w0BAQUFADAqMQswCQYDVQQGEwJCRTEbMBkGA1UEAxMSRmFrZSBTbWFscyBSb290IENBMB4XDTA5MDMzMDEyNTg1NloXDTEwMDMzMDEyNTg1NlowPjELMAkGA1UEBhMCQkUxHjAcBgNVBAMTFUZha2UgU21hbHMgQ2l0aXplbiBDQTEPMA0GA1UEBRMGMjAwOTAyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvaKQT1rTm5qeJEhcvY1dXuGYMOehWiE+pHPtQTNmr4tcbmTxlNBWz8rAwfeFDdmvdY8mOwXjtL0ChtJIGhRb+nNGJBELtgFSl3Keeqy055AfvoEKIg/AHOR6Amhh9eld7vxFrn2e6cciQaAuUfj/ppl4UBxb5GA936vxQDR7HjwWTkrwoRwTx3BKLRQIlG/nN6g8GylMc6DYHBh/4XjH+YD/WS2HtVdG4SBjdHKWQtCff5xXVJdVyhVhX4zV1E4TeXgLwZ5TqdLaVJ1bRGfupU0JRpv80aQr2CZ+U11qFwKb41OwfsIl0ffKbrdoNU9Sv3WX/OWsHBMF9iH2lG0cCwIDAQABo4IBGDCCARQwHQYDVR0OBBYEFHM5oTWTG0QoMqYNX6vqlFoTZiJcMB8GA1UdIwQYMBaAFP47TNDUiB8b8hbzZFK+iul5S82WMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDBDARBglghkgBhvhCAQEEBAMCAAcwRgYDVR0gBD8wPTA7BgZgOAEBAQIwMTAvBggrBgEFBQcCARYjaHR0cDovL3JlcG9zaXRvcnkuZmFrZS1laWQuc21hbHMuYmUwNwYDVR0fBDAwLjAsoCqgKIYmaHR0cDovL2NybC5mYWtlLWVpZC5zbWFscy5iZS9zbWFscy5jcmwwDQYJKoZIhvcNAQEFBQADggEBAE2HKBypngDFT1AIcvsit4y68nDT5D9dVJPEPleR1ht2XqIe1LhvhsAkYmhATzxFfMzM2tvpR+BRqzGgqCQNclAtisPQ2M9uDFrsSlCukFnJ/6+KNI9P3ubnqB6+PLbNjf3yPZBAtmHPSwUiao5UG6nVE2m07fF9UmIdKbiwPwbpJBw9xWkXwxGJg1PoYP723oI/JIkkme+GUssFvATGPWBrvmf2LItVMQVXbMpkDVjWYbVQ7EM8gYpVHhY9QD92R0vPqEYZsTwz41f4L69Xh2MSmUJq1s7Ayl7LI7xdf7OP1NLtyVJ/iGkFjlDVL4AmUffejP8PNs22MEMgEClNnDQwggOUMIICfKADAgECAgkA1xzWNeBvPsMwDQYJKoZIhvcNAQEFBQAwKjELMAkGA1UEBhMCQkUxGzAZBgNVBAMTEkZha2UgU21hbHMgUm9vdCBDQTAeFw0wOTAzMzAxMjM2MDZaFw0xMDAzMzAxMjM2MDZaMCoxCzAJBgNVBAYTAkJFMRswGQYDVQQDExJGYWtlIFNtYWxzIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDL5SGzqI565zRT7SS+m/rbt0TGoxCc6+eVQWnymX/eu/Ci/M6zlNecAoEGLwnOZFSgQXqUmwoebt/rxyf4EUIxGvkazkAS4cNVobC04A0JR6N/zcExv5J/KlGpZF7GLkVWI4mJ8gDv327voL+rtsCbIfQY15NfqX/u1Hjzs9ijcHjQr2cBcZunthh9ckur7m2OETjx6sgte3K400daH7Ye1A9eakQ67ebkLSgnl1tIQgRzgmT87neSjTbf3fPCbSAVmpqyvwVAlPpT8NbAs2ZeB6KOYFVmecQasRfiTRZrmkO/QdQd8F8cbPcOgOMV/Pd/9SnRkqtg+KKrlBxS/xfrAgMBAAGjgbwwgbkwHQYDVR0OBBYEFP47TNDUiB8b8hbzZFK+iul5S82WMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDBDARBglghkgBhvhCAQEEBAMCAAcwRQYDVR0gBD4wPDA6BgVgOAEBATAxMC8GCCsGAQUFBwIBFiNodHRwOi8vcmVwb3NpdG9yeS5mYWtlLWVpZC5zbWFscy5iZTANBgkqhkiG9w0BAQUFAAOCAQEAgiLxdJtLj17iisGrFOl/RfB/u0xOkfQA+Zc9XkC4V826k+cioyJPC0OuZbF4/jAUycz68hGA6NOXrQJO6BSb2qh1h7BjfSPV/5GkAAhMUg1VvjyrbbeX8ATwPiEhAML902UkC82Hh3pEhGIueDTmfxDqhcK3PYDuZsDlH9DCscfaiRkfzw+gF7gHAksOkqqDs3AWTs/7iJBsr7HL8pb+GrfTHLEQGhY8mo+0TCfxbzK9EN021cpCPAT9IcaAVFT64PNvJsE3sGvghRW8QkorZH290fYTKidOG1bXakuKbzFcyp8Be1hdm1gkcUAMjf0rBVfgeETGItcDUyLYhDRbJjGCAdgwggHUAgEBMFIwPjELMAkGA1UEBhMCQkUxHjAcBgNVBAMTFUZha2UgU21hbHMgQ2l0aXplbiBDQTEPMA0GA1UEBRMGMjAwOTAyAhAQAAAAAACwAAAAAAAAAAEtMAkGBSsOAwIaBQCgXTAYBgkqhkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0wOTA5MDkxNDU2NTdaMCMGCSqGSIb3DQEJBDEWBBQPe5wXeaVs3g3uxZHaEU5Zpo2zATANBgkqhkiG9w0BAQowAASCAQBuEo+lpf7Vc8UnT7IGXyqUqh2FKgG6awPw51228RZ/4tFbzdfMPlF91J3+dpVTBmAk34ZSgA5AyP8h0UFR5dMEipBMFXu0InlbdbChfrLkzzJg52mWx25Zw9BY8NNbZrMlqJJc/840RU8ed3CFGP/l/1uTMQOlAXrTIodQV6x6IqUJiDTxjtffiNjtuEZ62HET7BO8SuMGH5BEazQpIjBht1P1ZB2NSYoNuWMWdsK+2g/ucfhYKYe7cjKgK9iOaWbn3v2Mxvjx9GKt8Fnm+s6vlKnI6d7FidgydBV4DsfzAVMcYhWOMP7rR+ECjMUiUGf8F3E4DwMZXBXqNJ3mh28U"
-
-let byteString = window.atob(exampleCmsData)
-
-let byteArray = Array.zeroCreate<byte>(byteString.Length)
-
-for i in 0..byteString.Length - 1 do 
-    let c = charCodeAt byteString i
-    byteArray.[i] <- charCodeAt byteString i
+    for i in 0..byteString.Length - 1 do    
+        byteArray.[i] <- charCodeAt byteString i
+    byteArray
    
 let byteToUpperHex (b: byte) = (toHex b).ToUpper().PadLeft(2, '0')
 
@@ -398,13 +394,11 @@ let makeStructureDom (ctx: AsnContext) (parentEl: HTMLElement) (asnElement: AsnE
 
     cataAsn fSimple fCollection asnElement []
 
-let read ([cmsModule;x509Module]: ModuleDefinition list) = 
-
+let read byteArray (modules: ModuleDefinition list) rootTypeName = 
     let br = AsnArrayStream(byteArray, 0)
-
-    let ctx = AsnContext(br, [cmsModule; x509Module])
+    let ctx = AsnContext(br, modules)
             
-    let element = readElement ctx (Some cmsModule.TypeAssignments.["ContentInfo"].Type)
+    let element = readElement ctx (ctx.LookupType(rootTypeName))
 
     console.log(element)
 
@@ -496,28 +490,80 @@ let loadSchemaDom info =
             return failwithf "ERROR: %d" resp.Status
     }
 
+let loadData url =
+    async {
+        let! resp = fetchAsync(url, [Headers [ContentType "application/octet-stream"]])
+        if resp.Ok then
+            return! resp.arrayBuffer() |> Async.AwaitPromise             
+        else                    
+            return failwithf "ERROR: %d" resp.Status
+    }
 
 moduleSelector.addEventListener_change(f1(fun e -> 
     updateSchema()
     box()))
 
+let schemas = 
+    [ { Id = "rfc3852"
+        DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
+        Url = "/Data/rfc3852.txt" }
+      { Id = "rfc5280"
+        DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
+        Url = "/Data/rfc5280.txt" } ]
+    |> Seq.map (fun s -> s.Id, s)
+    |> Map.ofSeq
 
-async {
-    let! elements = 
-        [ { Id = "rfc3852"
-            DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
-            Url = "rfc3852.txt" }
-          { Id = "rfc5280"
-            DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
-            Url = "rfc5280.txt" } ]
-        |> List.map loadSchemaDom
-        |> Async.Parallel
+let exampleFiles = 
+    [ ("google_ssl.cer", (["rfc5280"], "Certificate", "google_ssl.cer"))
+      ("PSSSignDataSHA1.sig", (["rfc3852"; "rfc5280"], "ContentInfo", "BouncyCastle/cms/sigs/PSSSignDataSHA1.sig")) ]
+    |> Map.ofList
 
-    elements |> Array.iter (fun el -> schemaViewer.appendChild(snd el) |> ignore)    
+let toSeq (nodeList: NodeListOf<'t>) =
+    seq {
+        for i = 0 to int nodeList.length do
+            yield nodeList.Item(i)
+    }
 
-    updateSchema()
+let loadExampleFile exampleFile =
+    match exampleFiles.TryFind(exampleFile) with
+    | Some(ss, rootTypeName, url) ->
+        async {
+            let! data = loadData ("/Data/" + url)
+            let! schemaData = ss |> Seq.map (fun s -> schemas.Item(s)) |> Seq.map loadSchemaDom |> Async.Parallel
 
-    elements |> List.ofArray |> List.map fst |> read
+            schemaData |> Array.iter (fun el -> schemaViewer.appendChild(snd el) |> ignore)
+            updateSchema()        
 
-} |> Async.Start
+            let byteData = (createNew JS.Uint8Array data) :?> byte[]
+            
+            let modules = schemaData |> List.ofArray |> List.map fst
+
+            try
+                read byteData modules rootTypeName
+                
+                document.getElementById("intro").classList.add("hidden")
+
+                document.querySelectorAll(".viewer,.schema-viewer,.hex-viewer") 
+                |> toSeq
+                |> Seq.iter (fun n -> n.classList.remove("hidden"))
+
+            with e ->
+                printfn "%A" e
+        } |> Async.Start        
+    | None -> ()
+
+if location.hash.StartsWith("#example=") then
+    location.hash.Substring("#example=".Length) |> loadExampleFile
+
+window.addEventListener_hashchange(f1(fun e -> location.hash.Substring("#example=".Length) |> loadExampleFile; box ()))
+
+    
+
+    
+
+
+
+
+
+
 
