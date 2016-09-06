@@ -36,6 +36,9 @@ let base64ToByteArray b64 =
    
 let byteToUpperHex (b: byte) = (toHex b).ToUpper().PadLeft(2, '0')
 
+let appendTo (targetEl: HTMLElement) el =
+    targetEl.appendChild el |> ignore
+
 let makeHexViewerDom (asnElement: AsnElement) (bytes: byte[]) =
     let fSimple (el: AsnElement) = 
         let span = document.createElement "span"
@@ -344,10 +347,7 @@ let elInfo (ctx: AsnContext) (asnElement: AsnElement) (parentAsnElements: AsnEle
         | Some({ Kind = ChoiceType(cs) }) ->
             matchChoiceComponent ctx asnElement.Header cs        
         | _ -> None
-
-    let appendTo (targetEl: HTMLElement) el =
-        targetEl.appendChild el |> ignore
-
+    
     let choiceComponentEl = 
         choiceComponent
         |> Core.Option.bind nameOfType
@@ -503,35 +503,59 @@ moduleSelector.addEventListener_change(f1(fun e ->
     updateSchema()
     box()))
 
-let schemas = 
-    [ { Id = "rfc3852"
-        DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
-        Url = "/Data/rfc3852.txt" }
-      { Id = "rfc5280"
-        DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
-        Url = "/Data/rfc5280.txt" } ]
-    |> Seq.map (fun s -> s.Id, s)
-    |> Map.ofSeq
 
-let exampleFiles = 
-    [ ("google_ssl.cer", (["rfc5280"], "Certificate", "google_ssl.cer"))
-      ("PSSSignDataSHA1.sig", (["rfc3852"; "rfc5280"], "ContentInfo", "BouncyCastle/cms/sigs/PSSSignDataSHA1.sig")) ]
-    |> Map.ofList
+module Schemas =
+    let Cms = { Id = "rfc3852"
+                DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
+                Url = "/Data/rfc3852.txt" }
 
+    let X509 = { Id = "rfc5280"
+                 DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
+                 Url = "/Data/rfc5280.txt" }
+
+type ExampleFile = 
+    { Path: string
+      Description: string
+      RootType: string
+      Schemas: SchemaInfo list }
+
+let exampleFiles =
+    [ { Path = "google_ssl.cer"
+        Description = "Google SSL certificate"
+        RootType = "Certificate"
+        Schemas = [Schemas.X509] }
+      { Path = "BouncyCastle/cms/sigs/PSSSignDataSHA1.sig"
+        Description = "Example CMS signed file (BouncyCastle test data)"
+        RootType = "ContentInfo"
+        Schemas = [Schemas.Cms; Schemas.X509]} ]
+    
 let toSeq (nodeList: NodeListOf<'t>) =
     seq {
         for i = 0 to int nodeList.length do
             yield nodeList.Item(i)
     }
 
-let loadExampleFile exampleFile =
-    match exampleFiles.TryFind(exampleFile) with
-    | Some(ss, rootTypeName, url) ->
-        async {
-            let! data = loadData ("/Data/" + url)
-            let! schemaData = ss |> Seq.map (fun s -> schemas.Item(s)) |> Seq.map loadSchemaDom |> Async.Parallel
+exampleFiles 
+|> List.iter (fun f -> 
+    let listOfExamples = document.querySelector("#intro ul") :?> HTMLElement
 
-            schemaData |> Array.iter (fun el -> schemaViewer.appendChild(snd el) |> ignore)
+    let listItem = document.createElement_li()
+    let link = document.createElement_a()
+
+    link.href <- "#example=" + f.Path
+    link.textContent <- f.Description
+    
+    listItem.appendChild(link) |> ignore
+    listOfExamples.appendChild(listItem) |> ignore)
+
+let loadExampleFile exampleFile =
+    match List.tryFind (fun ef -> ef.Path = exampleFile) exampleFiles with
+    | Some({ Schemas = schemas; RootType = rootType; Path = path }) ->
+        async {
+            let! data = loadData ("/Data/" + path)
+            let! schemaData = schemas |> Seq.map loadSchemaDom |> Async.Parallel
+
+            schemaData |> Array.iter (snd >> appendTo schemaViewer)
             updateSchema()        
 
             let byteData = (createNew JS.Uint8Array data) :?> byte[]
@@ -539,7 +563,7 @@ let loadExampleFile exampleFile =
             let modules = schemaData |> List.ofArray |> List.map fst
 
             try
-                read byteData modules rootTypeName
+                read byteData modules rootType
                 
                 document.getElementById("intro").classList.add("hidden")
 
@@ -556,9 +580,6 @@ if location.hash.StartsWith("#example=") then
     location.hash.Substring("#example=".Length) |> loadExampleFile
 
 window.addEventListener_hashchange(f1(fun e -> location.hash.Substring("#example=".Length) |> loadExampleFile; box ()))
-
-    
-
     
 
 
