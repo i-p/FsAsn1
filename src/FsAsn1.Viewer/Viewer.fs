@@ -398,7 +398,7 @@ let read byteArray (modules: ModuleDefinition list) rootTypeName =
     let br = AsnArrayStream(byteArray, 0)
     let ctx = AsnContext(br, modules)
             
-    let element = readElement ctx (ctx.LookupType(rootTypeName))
+    let element = readElement ctx (rootTypeName |> Core.Option.bind ctx.LookupType)
 
     console.log(element)
 
@@ -531,7 +531,7 @@ let exampleFiles =
     
 let toSeq (nodeList: NodeListOf<'t>) =
     seq {
-        for i = 0 to int nodeList.length do
+        for i = 0 to int nodeList.length - 1 do
             yield nodeList.Item(i)
     }
 
@@ -563,7 +563,7 @@ let loadExampleFile exampleFile =
             let modules = schemaData |> List.ofArray |> List.map fst
 
             try
-                read byteData modules rootType
+                read byteData modules (Some rootType)
                 
                 document.getElementById("intro").classList.add("hidden")
 
@@ -581,7 +581,52 @@ if location.hash.StartsWith("#example=") then
 
 window.addEventListener_hashchange(f1(fun e -> location.hash.Substring("#example=".Length) |> loadExampleFile; box ()))
     
+let handleFiles (fs: FileList) =
+  let reader = FileReader.Create()
+  
+  reader.onload <- f1(fun e ->
+      let data = (createNew JS.Uint8Array reader.result) :?> byte[]
+      
+      read data [] None      
+      document.getElementById("intro").classList.add("hidden")
+      document.querySelectorAll(".viewer,.schema-viewer,.hex-viewer") 
+      |> toSeq
+      |> Seq.iter (fun n -> n.classList.remove("hidden"))
+      box ())
 
+  reader.readAsArrayBuffer(fs.[0]);
+
+let drop (e: DragEvent ) =
+  console.log("drop")
+  e.stopPropagation()
+  e.preventDefault()
+
+  let dt = e.dataTransfer
+  let files = dt.files
+
+  handleFiles(files);
+  box()
+
+let dropbox = document.getElementById("dropbox");
+let dragenter (e: DragEvent) =  
+  e.stopPropagation()
+  e.preventDefault()
+  dropbox.classList.add("active")
+  box ()
+let dragleave (e: DragEvent) =  
+  e.stopPropagation()
+  e.preventDefault()
+  dropbox.classList.remove("active")
+  box ()
+let dragover (e: DragEvent) =  
+  e.stopPropagation()
+  e.preventDefault()
+  box ()
+
+dropbox.addEventListener_dragenter(f1 dragenter, false)
+dropbox.addEventListener_dragleave(f1 dragleave, false)
+dropbox.addEventListener_dragover(f1 dragover, false)
+dropbox.addEventListener_drop(f1 drop, false)
 
 
 
