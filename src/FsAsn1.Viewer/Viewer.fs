@@ -628,7 +628,9 @@ dropbox.addEventListener_dragleave(f1 dragleave, false)
 dropbox.addEventListener_dragover(f1 dragover, false)
 dropbox.addEventListener_drop(f1 drop, false)
 
+let fileInput = document.getElementById("file") :?> HTMLInputElement
 
+fileInput.addEventListener_change(f1 (fun e -> fileInput.files |> handleFiles; box ()), false)
 
 
 
