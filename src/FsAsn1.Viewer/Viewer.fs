@@ -562,6 +562,8 @@ let loadExampleFile exampleFile =
             
             let modules = schemaData |> List.ofArray |> List.map fst
 
+            document.getElementById("file-info").textContent <- sprintf "%s (%.2f KB)" path (float byteData.Length / 1024.0)
+
             try
                 read byteData modules (Some rootType)
                 
@@ -594,7 +596,11 @@ let handleFiles (fs: FileList) =
       |> Seq.iter (fun n -> n.classList.remove("hidden"))
       box ())
 
-  reader.readAsArrayBuffer(fs.[0]);
+  let file = fs.[0]
+  
+  document.getElementById("file-info").textContent <- sprintf "%s (%.2f KB)" file.name (file.size / 1024.0)
+
+  reader.readAsArrayBuffer(file);
 
 let drop (e: DragEvent ) =
   console.log("drop")
