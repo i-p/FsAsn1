@@ -67,6 +67,24 @@ type AsnElement =
       Value: AsnValue
       Offset: int32
       SchemaType: Schema.AsnType option }
+    with
+        member x.Range =
+            let len, lenOctets = 
+                match x.Header.Length with
+                | Definite(l, lenOctets) -> l, lenOctets
+                | Indefinite -> failwith "Not supported"
+
+            //TODO length of identifier octet, now assuming 1
+            (x.Offset, x.Offset + 1 + lenOctets + len - 1)
+
+        member x.HeaderRange =
+            let len, lenOctets = 
+                match x.Header.Length with
+                | Definite(l, lenOctets) -> l, lenOctets
+                | Indefinite -> failwith "Not supported"
+
+            //TODO length of identifier octet, now assuming 1
+            (x.Offset, x.Offset + 1 + lenOctets - 1)
 
 and AsnValue =
     | Integer of AsnInteger

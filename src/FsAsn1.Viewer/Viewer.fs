@@ -1,10 +1,11 @@
-﻿module FsAsn1.Viewer
+﻿module FsAsn1.Viewer.Main
 
 open System
 open Fable.Core
 open Fable.Import
 open Fable.Import.Browser
 open Fable.Core.JsInterop
+open Fable.Helpers.Fetch
 
 open FsAsn1.Types
 open FsAsn1.Schema
@@ -12,145 +13,25 @@ open FsAsn1.Reader
 open FsAsn1.SchemaParser
 open Microsoft.FSharp
 
-let schemaViewer = document.getElementById "schema-viewer"
-let hexViewer = document.getElementById "hex-viewer"
-let viewer = document.getElementById "viewer"
+open FsAsn1.Viewer.Data
+open FsAsn1.Viewer.Utils
+open FsAsn1.Viewer.Components
 
-let inline f1 (f: 'a->'b) = Func<_,_> f
-let inline f2 (f: 'a->'b->'c) = Func<_,_,_> f
-let inline f3 (f: 'a->'b->'c->'d) = Func<_,_,_,_> f
+let byId = document.getElementById
 
-[<Emit("$0.charCodeAt($1)")>]
-let charCodeAt (str: string) (i) : byte = failwith "JS only"
-
-[<Emit("($0).toString(16)")>]
-let toHex i : string = failwith "JS only"
-
-let base64ToByteArray b64 =
-    let byteString = window.atob(b64)
-    let byteArray = Array.zeroCreate<byte>(byteString.Length)
-
-    for i in 0..byteString.Length - 1 do    
-        byteArray.[i] <- charCodeAt byteString i
-    byteArray
-   
-let byteToUpperHex (b: byte) = (toHex b).ToUpper().PadLeft(2, '0')
-
-let appendTo (targetEl: HTMLElement) el =
-    targetEl.appendChild el |> ignore
-
-let makeHexViewerDom (asnElement: AsnElement) (bytes: byte[]) =
-    let fSimple (el: AsnElement) = 
-        let span = document.createElement "span"
-        let len, lenOctets = 
-            match el.Header.Length with
-            | Definite(l, lenOctets) -> l, lenOctets
-            | Indefinite -> failwith "Not supported"
-
-        //TODO length of identifier octet, now assuming 1
-        let byteStr = bytes.[el.Offset..el.Offset + 1 + lenOctets + len - 1]
-                      |> Array.map byteToUpperHex |> String.concat " "
-
-        span.textContent <- byteStr + " "
-        span.id <- sprintf "H%d-%d" el.Offset len
-        span
-
-    let fCollection (el: AsnElement) children = 
-        let span = document.createElement "span"
-        let len, lenOctets = 
-            match el.Header.Length with
-            | Definite(l, lenOctets) -> l, lenOctets
-            | Indefinite -> failwith "Not supported"
-
-        let byteStr = bytes.[el.Offset..el.Offset + 1 + lenOctets - 1] |> Array.map byteToUpperHex |> String.concat " "
-
-        span.textContent <- byteStr + " "
-        span.id <- sprintf "H%d-%d" el.Offset len
-
-        children |> Array.map span.appendChild |> ignore
-        span
-
-    cataAsn fSimple fCollection asnElement
-
-let toOption (el: HTMLElement) : HTMLElement option = 
-    if Object.ReferenceEquals(el, null) then
-        None
-    else
-        Some el
- 
-let getElementById id : HTMLElement option = 
-    document.getElementById id |> toOption
-
-[<Emit("$1[$0]")>]
-let getProp p obj: obj = failwith "JS only"
-
-type ElementType =
-    | StructureElement
-    | HexElement
-    | SchemaElement
-
-type ElementSet = 
-    { Id: string
-      Structure: HTMLElement
-      Hex: HTMLElement
-      Schema: (string * HTMLElement) option }
-    member this.Elements (): HTMLElement list =
-        match this.Schema with
-        | Some(_, el) -> [this.Structure; this.Hex; el]
-        | None -> [this.Structure; this.Hex]
-
-    member this.AddClass (cls: string) =
-        this.Elements()
-        |> List.iter (fun el -> el.classList.add(cls))
-
-    member this.RemoveClass (cls: string) =
-        this.Elements()
-        |> List.iter (fun el -> el.classList.remove(cls))
-
-
-let hover, select =
-    let hoverSet: ElementSet option ref = ref None
-    let selectionSet: ElementSet option ref = ref None
-
-    let update (cls: string) (curSet: ElementSet option ref) (newSet: ElementSet option) =
-        match !curSet with
-        | Some(set) -> set.RemoveClass cls
-        | None -> ()
-
-        match newSet with
-        | Some(set) -> 
-            set.AddClass cls        
-            curSet := Some set
-        | None ->
-            curSet := None
-
-    update "hover" hoverSet, update "selected" selectionSet
-
-let getElementSet (el: HTMLElement) = 
-    let id = el.id.Substring(1)
-    let hexEl = getElementById("H" + id).Value
-    let structureEl = getElementById("S" + id).Value
-    let typeName = (getProp "typeName" structureEl) :?> string
-    let typeEl = getElementById("t-" + typeName)
-    { Id = id
-      Structure = structureEl
-      Hex = hexEl
-      Schema = typeEl |> Core.Option.map (fun el -> (typeName, el)) }
-
-let hoverId (el: HTMLElement option) =
-    el
-    |> Core.Option.map getElementSet
-    |> hover    
-
-let syncScroll (sourceEl: HTMLElement) 
-               (sourceContainer: HTMLElement) 
-               (targetEl: HTMLElement) 
-               (targetContainer: HTMLElement) =
-    let newScrollTop = targetEl.offsetTop - (sourceEl.offsetTop - sourceContainer.scrollTop)
-
-    targetContainer.scrollTop <- newScrollTop
-    
-let moduleSelector = document.getElementById("module-selector") :?> HTMLSelectElement
+let schemaViewer        = byId "schema-viewer"
+let hexViewer           = byId "hex-viewer"
+let hexViewerBytes      = byId "bytes"
+let viewer              = byId "viewer"
+let moduleSelector      = byId "module-selector" :?> HTMLSelectElement
+let offsetsEl           = byId "hex-offsets"
+let schemaSelectorEl    = byId "schema-selector"
+let fileInfoEl          = byId "file-info"
+let introEl             = byId "intro"
+let previewInfoEl       = byId "preview-info"
+let dropbox             = byId "dropbox"
+let fileInput           = byId "file" :?> HTMLInputElement
+let listOfExamples      = document.querySelector("#intro ul") :?> HTMLElement
 
 let updateSchema () =
     let selectedValue = moduleSelector.value   
@@ -162,14 +43,172 @@ let updateSchema () =
 
         schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
 
-let selectId (el: HTMLElement option) =
-    match el with
-    | None -> select None
-    | Some(el) ->
-        let set = getElementSet el
-        select (Some set)
+let read byteArray (modules: ModuleDefinition list) rootTypeName =     
+    let ctx = AsnContext(AsnArrayStream(byteArray, 0), modules)            
+    let ty = rootTypeName |> Core.Option.bind ctx.LookupType
+    let element = readElement ctx ty
+        
+    makeOffsets byteArray.Length
+    |> Seq.iter (appendTo offsetsEl)
+
+    makeHexRuns element byteArray
+    |> appendTo hexViewerBytes
     
-        if el.id.StartsWith("S") then        
+    makeStructureHierarchy ctx viewer element 
+    |> appendTo viewer
+    
+let hideIntro () =
+    addClass "hidden" introEl
+
+    removeClass "hidden" viewer
+    removeClass "hidden" schemaViewer
+    removeClass "hidden" hexViewer
+
+
+let fetchSchema info =
+    async {
+        let! resp = fetchAsync(info.Url, [])    
+        if resp.Ok then
+            return! resp.text() |> Async.AwaitPromise                        
+        else                    
+            return failwithf "ERROR: %d" resp.Status
+    }
+
+let fetchData url =
+    async {
+        let! resp = fetchAsync(url, [Headers [ContentType "application/octet-stream"]])
+        if resp.Ok then
+            return! resp.arrayBuffer() |> Async.AwaitPromise             
+        else                    
+            return failwithf "ERROR: %d" resp.Status
+    }
+
+let parseSchema text =    
+    parseModuleDefinition text 0 |> Core.Option.get    
+
+
+type LoadedSchema =
+    { Info: SchemaInfo
+      ModuleDefinition: ModuleDefinition
+      OptionElement: HTMLElement
+      SchemaElement: HTMLElement }
+
+let loadSchemaDom info =
+    async {
+        let! text = fetchSchema info
+
+        console.time("parsing")
+        let md = parseSchema text
+        console.timeEnd("parsing")
+
+        let optEl, schemaEl = makeSchemaDom info text md
+
+        return { Info = info
+                 ModuleDefinition = md
+                 OptionElement = optEl
+                 SchemaElement = schemaEl }
+    }
+
+let loadFile path ty (byteData: byte[]) =
+    async {
+        let! schemaData = 
+            ty.Schemas 
+            |> Seq.map loadSchemaDom                
+            |> Async.Parallel
+                            
+        schemaData 
+        |> Array.iter (fun ls ->
+            appendTo moduleSelector ls.OptionElement
+            appendTo schemaViewer ls.SchemaElement)
+            
+        updateSchema()
+
+        let modules = schemaData |> List.ofArray |> List.map (fun ls -> ls.ModuleDefinition)
+
+        fileInfoEl.textContent <- sprintf "%s (%.2f KB)" path (float byteData.Length / 1024.0)
+
+        try
+            read byteData modules ty.TypeName                
+            hideIntro()
+        with e ->
+            printfn "%A" e
+    }
+
+let loadExampleFile path =
+    match List.tryFind (fun ef -> ef.Path = path) exampleFiles with
+    | Some({ Type = ty; Path = path }) ->
+        async {
+            let! data = fetchData ("/Data/" + path)
+            let byteData = (createNew JS.Uint8Array data) :?> byte[]
+            
+            return! loadFile path ty byteData            
+        } |> Async.Start        
+    | None -> ()
+                   
+let loadSelectedFile (fs: FileList) =
+    let readFile (file: File) knownType = 
+        let reader = FileReader.Create()
+  
+        reader.onload <- fun e ->
+            let data = (createNew JS.Uint8Array reader.result) :?> byte[]
+      
+            loadFile file.name knownType data |> Async.Start            
+            box ()
+            
+        reader.readAsArrayBuffer(file);
+
+    let file = fs.[0]  
+    previewInfoEl.textContent <- sprintf "Load %s (%.2f KB) as:" file.name (file.size / 1024.0)
+    previewInfoEl.classList.remove("hidden")
+
+    schemaSelectorEl.classList.remove("hidden")
+    schemaSelectorEl.addEventListener_click(fun e -> 
+        let el = e.target :?> HTMLElement        
+
+        match Core.Option.ofObj (el.getAttribute("data-known-type")) with
+        | Some(strIndex) ->            
+            readFile file (knownTypes.[int strIndex])            
+        | None -> ()
+        box ())
+ 
+module State =
+    type private ElementSet = 
+        { Id: string
+          Structure: HTMLElement      
+          Hex: HTMLElement
+          Schema: (string * HTMLElement) option }
+        member this.Elements (): HTMLElement list =
+            match this.Schema with
+            | Some(_, el) -> [this.Structure; this.Hex; el]
+            | None -> [this.Structure; this.Hex]
+
+        member this.AddClass (cls: string) =
+            this.Elements()
+            |> List.iter (addClass cls)
+
+        member this.RemoveClass (cls: string) =
+            this.Elements()
+            |> List.iter (removeClass cls)
+    
+    let isHexElement (el: HTMLElement) =
+        el.id.StartsWith("H")
+
+    let isStructureElement (el: HTMLElement) =
+        el.id.StartsWith("S")
+
+    let private getElementSet (el: HTMLElement) = 
+        let id = el.id.Substring(1)
+        let hexEl = tryGetElementById("H" + id).Value
+        let structureEl = tryGetElementById("S" + id).Value
+        let typeName = (getProp "typeName" structureEl) :?> string
+        let typeEl = tryGetElementById("t-" + typeName)
+        { Id = id
+          Structure = structureEl
+          Hex = hexEl
+          Schema = typeEl |> Core.Option.map (fun el -> (typeName, el)) }
+
+    let private syncOtherViews (el: HTMLElement) set =    
+        if isStructureElement el then        
             let sync = syncScroll set.Structure viewer
                
             sync set.Hex hexViewer
@@ -179,13 +218,10 @@ let selectId (el: HTMLElement option) =
                 let schemaId = el.parentElement.getAttribute("data-schema-id")
                 moduleSelector.value <- schemaId
                 updateSchema()
+                sync el schemaViewer
             | None -> ()
-
-            match set.Schema with
-            | Some(_, el) -> sync el schemaViewer
-            | None -> ()
-                        
-        if el.id.StartsWith("H") then            
+                                    
+        if isHexElement el then            
             let sync = syncScroll set.Hex hexViewer
                
             sync set.Structure viewer
@@ -193,511 +229,92 @@ let selectId (el: HTMLElement option) =
             match set.Schema with
             | Some(_, el) -> sync el schemaViewer
             | None -> ()
-                            
-let rec findParent predicate (el: HTMLElement) =
-    if Object.ReferenceEquals(el, null) then
-        None
-    else if predicate el then
-        Some el
-    else                
-        findParent predicate el.parentElement
 
-let withElement (prefix: char) (el: HTMLElement) action =
-    el
-    |> findParent (fun el -> el.id.StartsWith(prefix.ToString()))
-    |> Core.Option.iter (fun el -> action (Some el))
+    let hover, select =
+        let hoverSet: ElementSet option ref = ref None
+        let selectionSet: ElementSet option ref = ref None
 
-hexViewer.addEventListener_click(f1 (fun e -> 
-    let el = e.target :?> HTMLElement
-        
-    withElement 'H' el selectId
-        
-    box ()), false)
+        let update (cls: string) (curSet: ElementSet option ref) (newSet: ElementSet option) =
+            match !curSet with
+            | Some(set) -> set.RemoveClass cls
+            | None -> ()
 
-hexViewer.addEventListener_mouseover(f1 (fun e -> 
-    let n = e.target :?> HTMLElement
+            match newSet with
+            | Some(set) -> 
+                set.AddClass cls        
+                curSet := Some set
+            | None ->
+                curSet := None
 
-    withElement 'H' n hoverId
-    
-    box ()), false)
+        let hoverEl el =
+            el 
+            |> Core.Option.bind (findParent (fun x -> isHexElement x || isStructureElement x))
+            |> Core.Option.map getElementSet 
+            |> update "hover" hoverSet
 
-hexViewer.addEventListener_mouseleave(f1 (fun e ->     
-    hoverId None
-    box ()), false)
+        let selectEl el =        
+            el 
+            |> Core.Option.bind (findParent (fun x -> isHexElement x || isStructureElement x))
+            |> Core.Option.map (fun el -> el, getElementSet el) 
+            |> function
+                | Some(el, set) -> 
+                    update "selected" selectionSet (Some set)
+                    syncOtherViews el set                
+                | None -> 
+                    update "selected" selectionSet None
+                                                                
+        hoverEl, selectEl
+     
+hexViewer.addEventListener_click(withTarget (Some >> State.select))
+hexViewer.addEventListener_mouseover(withTarget (Some >> State.hover))
+hexViewer.addEventListener_mouseleave(fun _ ->     
+    State.hover None
+    box ())
 
-viewer.addEventListener_mouseover(f1 (fun e -> 
-    let n = e.target :?> HTMLElement
+viewer.addEventListener_click(withTarget (Some >> State.select))
+viewer.addEventListener_mouseover(withTarget (Some >> State.hover))
+viewer.addEventListener_mouseleave(fun e ->     
+    State.hover None
+    box ())
 
-    withElement 'S' n hoverId
-        
-    box ()), false)
-
-viewer.addEventListener_mouseleave(f1 (fun e ->     
-    hoverId None            
-    box ()), false)
-
-viewer.addEventListener_click(f1 (fun e ->
-    let n = e.target :?> HTMLElement
-
-    withElement 'S' n selectId
-    box ()), false)
-
-let typeNameEl (ty: AsnType option) =    
-    ty 
-    |> Core.Option.bind nameOfType
-    |> Core.Option.map (fun name -> 
-        let el = document.createElement("a")
-        el.textContent <- name
-        el.className <- "s-type-name"
-        el?href <- "#t-" + name
-        el)
-
-//TODO remove ctx and parentElements
-let componentNameEl (ctx: AsnContext) (el: AsnElement) (parentElements: AsnElement list) =
-    componentName el
-    |> Core.Option.map (fun n ->
-        let el = document.createElement("span")
-        el.textContent <- n
-        el.className <- "s-component-name"
-        el)
-
-let makeSpan className text =
-    let el = document.createElement "span"
-    el.textContent <- text
-    el.className <- className
-    el
-
-let elInfo (ctx: AsnContext) (asnElement: AsnElement) (parentAsnElements: AsnElement list) =
-    let el = document.createElement "div"
-    let length = asnElement.Header.Length
-
-    let len, lenOctets = 
-        match asnElement.Header.Length with
-        | Definite(l, lenOctets) -> l, lenOctets
-        | Indefinite -> failwith "Not supported"
-
-    el.id <- sprintf "S%d-%d" asnElement.Offset len
-
-    let lengthStr = 
-        match length with
-        | Definite (l, _) -> l.ToString()
-        | Indefinite -> "Indefinite"
-
-    let utcTimeToString (dto: DateTimeOffset) =
-        sprintf "%02d.%02d.%d %02d:%02d" dto.DateTime.Day dto.DateTime.Month dto.DateTime.Year dto.DateTime.Hour dto.DateTime.Minute        
-
-    let valueStr =
-        match asnElement.Value with
-        | Integer(v) -> v.ToString() |> Some
-        | ObjectIdentifier(numbers) -> String.Join(".", numbers) |> Some
-        //TODO FIX
-        | OctetString(v) -> sprintf "%x" v.[0] |> Some
-        | PrintableString(v) -> sprintf "\"%s\"" v |> Some
-        | UTF8String(v) -> sprintf "\"%s\"" v |> Some
-        | UTCTime(dto) -> utcTimeToString dto |> Some
-        | T61String(_) -> "" |> Some
-        | Boolean(v) ->
-            match v with
-            | AsnBoolean.True _ -> "TRUE" |> Some
-            | AsnBoolean.False -> "FALSE" |> Some
-        | Null
-        | Sequence(_)
-        | Set(_)
-        | Unknown(_)
-        | BitString(_)
-        | ExplicitTag(_) -> None
-
-    let typeStr = 
-        match asnElement.Value with
-        | Null -> "NULL"
-        | Integer(_) -> "INTEGER"
-        | ObjectIdentifier(_) -> "OBJECT_IDENTIFIER"
-        | OctetString(_) -> "OCTET_STRING"
-        | PrintableString(_) -> "PRINTABLE_STRING"
-        | UTF8String(_) -> "UTF8_STRING"
-        | Sequence(_) -> "SEQUENCE"
-        | Set(_) -> "SET"
-        | T61String(_) -> "T61_STRING"
-        | Unknown(_) -> "Unknown"
-        | BitString(_) -> "BITSTRING"
-        | UTCTime(_) -> "UTC_TIME"
-        | ExplicitTag(_) -> "EXPLICIT_TAG"
-        | Boolean(v) -> "BOOLEAN"
-
-    let checkbox, label =
-        match asnElement.Value with
-        | SimpleValue ->
-            None, None
-        | Collection(_) ->
-            let checkbox = document.createElement("input")
-            checkbox?``type`` <- "checkbox"
-            checkbox.id <- "cb-" + el.id
-
-            let label = document.createElement("label")
-            //label.textContent <- "+/-"
-            label.setAttribute("for", "cb-" + el.id)
-            Some checkbox, Some label
-
-    let typeNameEl = typeNameEl asnElement.SchemaType
-    let compNameEl = componentNameEl ctx asnElement parentAsnElements
-    let asnTypeEl = typeStr |> makeSpan "s-asn-type"
-    let valueEl = valueStr |> Core.Option.map (makeSpan "s-value")
-
-    let choiceComponent = 
-        match (asnElement.SchemaType |> Core.Option.map ctx.ResolveType) with
-        | Some({ Kind = ChoiceType(cs) }) ->
-            matchChoiceComponent ctx asnElement.Header cs        
-        | _ -> None
-    
-    let choiceComponentEl = 
-        choiceComponent
-        |> Core.Option.bind nameOfType
-        |> Core.Option.map(fun name ->
-            let rootEl = document.createElement("span")
-            rootEl.className <- "s-choice-component"
-
-            let el = document.createElement("span")            
-            el.textContent <- choiceComponent.Value.ComponentName.Value
-            el.className <- "s-component-name"
-            
-            let typeEl = document.createElement("a")
-            typeEl.textContent <- name
-            typeEl.className <- "s-type-name"
-            typeEl?href <- "#t-" + name
-                        
-            [document.createTextNode("("); el; typeEl; document.createTextNode(")")] : Node list
-            |> List.iter (appendTo rootEl)
-            
-            rootEl)
-        
-    [checkbox; label; compNameEl; valueEl; typeNameEl; choiceComponentEl; Some asnTypeEl]
-    |> List.choose id
-    |> List.iter (fun e -> el.appendChild e |> ignore)
-
-    match typeNameEl with
-    | Some(e) -> el?typeName <- e.textContent
-    | _ -> ()
-
-    el    
-
-let makeStructureDom (ctx: AsnContext) (parentEl: HTMLElement) (asnElement: AsnElement) =
-    let fSimple (el: AsnElement) = 
-        fun parents -> 
-            elInfo ctx el parents
-
-    let fCollection (el: AsnElement) (children: (AsnElement list -> HTMLElement)[]) =                 
-        fun parents ->
-            let newParents = el :: parents
-            let childrenEl = children |> Array.map (fun c -> c newParents)
-            let dom = elInfo ctx el parents
-            childrenEl |> Array.iter (fun c -> dom.appendChild c |> ignore)
-            dom
-
-    cataAsn fSimple fCollection asnElement []
-
-let read byteArray (modules: ModuleDefinition list) rootTypeName = 
-    let br = AsnArrayStream(byteArray, 0)
-    let ctx = AsnContext(br, modules)
-            
-    let element = readElement ctx (rootTypeName |> Core.Option.bind ctx.LookupType)
-
-    console.log(element)
-
-    let lineCount = ((byteArray.Length - 1) / 16) + 1
-
-    let offsetsEl = document.getElementById("hex-offsets")
-
-    for i in seq { 0..lineCount-1 } do
-        let div = document.createElement("div")
-        div.textContent <- (toHex (i * 16)).ToUpper().PadLeft(6, '0')
-        offsetsEl.appendChild div |> ignore
-
-    hexViewer.querySelector("#bytes").appendChild (makeHexViewerDom element byteArray) |> ignore
-
-    makeStructureDom ctx viewer element |> viewer.appendChild |> ignore
-
-    
-open Fable.Helpers.Fetch
-
-type SchemaInfo = 
-    { Id: string
-      DisplayName: string
-      Url: string }
-
-let makeSchemaDom info schema =     
-    console.time("parsing")
-
-    let md = parseModuleDefinition schema 0 |> Core.Option.get
-    
-    console.timeEnd("parsing")
-
-    let schemaRootEl = document.createElement("div")
-    
-    schemaRootEl.classList.add("schema")
-    schemaRootEl.textContent <- schema
-
-    let mutable textNode = schemaRootEl.childNodes.Item(0)
-    let mutable offset = 0
-
-    console.time("ranges")
-
-    let tStart = performance.now()
-    
-    md.TypeAssignments |> Seq.sortBy (fun kvp -> fst kvp.Value.Range.Value) |> Seq.iter (fun kvp -> 
-        let name = kvp.Key
-        let value = kvp.Value
-        
-        match value.Range with
-        | Some(s,e) ->
-            let range = document.createRange()
-
-            range.setStart(textNode, float (int s - offset))
-            range.setEnd(textNode, float (int e - offset))
-
-            let span = document.createElement("span")
-
-            span.id <- sprintf "t-%s" name
-
-            range.surroundContents(span)
-
-            textNode <- schemaRootEl.lastChild
-            offset <- int e
-            ()
-        | None -> ()
-    )
-    
-    let tEnd = performance.now()
-
-    console.timeEnd("ranges")
-
-    schemaRootEl.setAttribute("data-schema-id", info.Id)
-    schemaRootEl.classList.add("hidden")
-    
-    let optionEl = document.createElement("option")
-    optionEl.setAttribute("value", info.Id)
-    optionEl.textContent <- info.DisplayName
-
-    moduleSelector.appendChild(optionEl) |> ignore
-
-    md, schemaRootEl
-
-let loadSchemaDom info =
-    async {
-        let! resp = fetchAsync(info.Url, [])    
-        if resp.Ok then
-            let! text = resp.text() |> Async.AwaitPromise
-            return makeSchemaDom info text
-        else                    
-            return failwithf "ERROR: %d" resp.Status
-    }
-
-let loadData url =
-    async {
-        let! resp = fetchAsync(url, [Headers [ContentType "application/octet-stream"]])
-        if resp.Ok then
-            return! resp.arrayBuffer() |> Async.AwaitPromise             
-        else                    
-            return failwithf "ERROR: %d" resp.Status
-    }
-
-moduleSelector.addEventListener_change(f1(fun e -> 
+moduleSelector.addEventListener_change(fun e -> 
     updateSchema()
-    box()))
+    box())
+ 
+window.addEventListener_hashchange(fun e -> location.hash.Substring("#example=".Length) |> loadExampleFile; box ())
 
+dropbox.addEventListener_dragenter(fun e ->
+    e.stopPropagation()
+    e.preventDefault()
+    dropbox.classList.add("active")
+    box ())
 
-module Schemas =
-    let Cms = { Id = "rfc3852"
-                DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
-                Url = "/Data/rfc3852.txt" }
+dropbox.addEventListener_dragleave(fun e ->
+    e.stopPropagation()
+    e.preventDefault()
+    dropbox.classList.remove("active")
+    box ())
 
-    let X509 = { Id = "rfc5280"
-                 DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
-                 Url = "/Data/rfc5280.txt" }
+dropbox.addEventListener_dragover(fun e ->
+    e.stopPropagation()
+    e.preventDefault()
+    box ())
 
-module KnownTypes = 
-    let X509Certificate = (Some "Certificate", "X.509 Certificate (RFC 5280)", [Schemas.X509])
-    let CmsSignedData = (Some "ContentInfo", "CMS Signed Data (RFC 3852)", [Schemas.Cms; Schemas.X509])
-    let None = (None, "Unknown type", [])
+dropbox.addEventListener_drop(fun e ->
+    e.stopPropagation()
+    e.preventDefault()
+    e.dataTransfer.files |> loadSelectedFile    
+    box())
 
-type ExampleFile = 
-    { Path: string
-      Description: string
-      RootType: string
-      Schemas: SchemaInfo list }
+fileInput.addEventListener_change(fun e -> fileInput.files |> loadSelectedFile; box ())
 
-let exampleFiles =
-    [ { Path = "google_ssl.cer"
-        Description = "Google SSL certificate"
-        RootType = "Certificate"
-        Schemas = [Schemas.X509] }
-      { Path = "BouncyCastle/cms/sigs/PSSSignDataSHA1.sig"
-        Description = "Example CMS signed file (BouncyCastle test data)"
-        RootType = "ContentInfo"
-        Schemas = [Schemas.Cms; Schemas.X509]} ]
-    
-let toSeq (nodeList: NodeListOf<'t>) =
-    seq {
-        for i = 0 to int nodeList.length - 1 do
-            yield nodeList.Item(i)
-    }
 
 exampleFiles 
-|> List.iter (fun f -> 
-    let listOfExamples = document.querySelector("#intro ul") :?> HTMLElement
-
-    let listItem = document.createElement_li()
-    let link = document.createElement_a()
-
-    link.href <- "#example=" + f.Path
-    link.textContent <- f.Description
-    
-    listItem.appendChild(link) |> ignore
-    listOfExamples.appendChild(listItem) |> ignore)
-
-let schemaSelectorEl = document.getElementById("schema-selector")
-
-let knownTypes = [KnownTypes.X509Certificate; KnownTypes.CmsSignedData; KnownTypes.None]
+|> List.iter (exampleFile >> appendTo listOfExamples)
 
 knownTypes
-|> List.iteri (fun index (typeName, displayName, modules) ->
-    
-    let btnEl = document.createElement_button()
-
-    btnEl.textContent <- displayName
-    
-    btnEl.setAttribute("data-known-type", string index)
-
-    schemaSelectorEl.appendChild(btnEl) |> ignore)
-
-
-let loadExampleFile exampleFile =
-    match List.tryFind (fun ef -> ef.Path = exampleFile) exampleFiles with
-    | Some({ Schemas = schemas; RootType = rootType; Path = path }) ->
-        async {
-            let! data = loadData ("/Data/" + path)
-            let! schemaData = schemas |> Seq.map loadSchemaDom |> Async.Parallel
-
-            schemaData |> Array.iter (snd >> appendTo schemaViewer)
-            updateSchema()        
-
-            let byteData = (createNew JS.Uint8Array data) :?> byte[]
-            
-            let modules = schemaData |> List.ofArray |> List.map fst
-
-            document.getElementById("file-info").textContent <- sprintf "%s (%.2f KB)" path (float byteData.Length / 1024.0)
-
-            try
-                read byteData modules (Some rootType)
-                
-                document.getElementById("intro").classList.add("hidden")
-
-                document.querySelectorAll(".viewer,.schema-viewer,.hex-viewer") 
-                |> toSeq
-                |> Seq.iter (fun n -> n.classList.remove("hidden"))
-
-            with e ->
-                printfn "%A" e
-        } |> Async.Start        
-    | None -> ()
-
+|> List.mapi knownTypeButton
+|> List.iter (appendTo schemaSelectorEl)
+       
 if location.hash.StartsWith("#example=") then
     location.hash.Substring("#example=".Length) |> loadExampleFile
-
-window.addEventListener_hashchange(f1(fun e -> location.hash.Substring("#example=".Length) |> loadExampleFile; box ()))
-    
-
-let previewInfoEl = document.getElementById("preview-info")
-
-
-let handleFiles (fs: FileList) =
-
-    let readFile (file: File) modules typeName = 
-        let reader = FileReader.Create()
-  
-        reader.onload <- f1(fun e ->
-            let data = (createNew JS.Uint8Array reader.result) :?> byte[]
-      
-            read data modules typeName
-            document.getElementById("intro").classList.add("hidden")
-            document.querySelectorAll(".viewer,.schema-viewer,.hex-viewer") 
-            |> toSeq
-            |> Seq.iter (fun n -> n.classList.remove("hidden"))
-            box ())
-    
-        document.getElementById("file-info").textContent <- sprintf "%s (%.2f KB)" file.name (file.size / 1024.0)
-
-        reader.readAsArrayBuffer(file);
-
-    let file = fs.[0]  
-    previewInfoEl.textContent <- sprintf "Load %s (%.2f KB) as:" file.name (file.size / 1024.0)
-    previewInfoEl.classList.remove("hidden")
-
-    schemaSelectorEl.classList.remove("hidden")
-
-    schemaSelectorEl.addEventListener_click(f1(fun e -> 
-        let el = e.target :?> HTMLElement        
-
-        match Core.Option.ofObj (el.getAttribute("data-known-type")) with
-        | Some(strIndex) ->
-            let (typeName, _, schemas) = knownTypes.[int strIndex]
-
-            async {
-                try
-                    let! schemaData = schemas |> Seq.map loadSchemaDom |> Async.Parallel
-
-                    schemaData |> Array.iter (snd >> appendTo schemaViewer)
-                    updateSchema()        
-                            
-                    let modules = schemaData |> List.ofArray |> List.map fst
-                
-                    readFile file modules typeName
-                with e ->
-                    console.error(string e)
-
-            } |> Async.Start           
-            ()
-        | None ->
-            ()                                
-        box ()))
-    
-   
-
-let drop (e: DragEvent ) =
-  console.log("drop")
-  e.stopPropagation()
-  e.preventDefault()
-
-  let dt = e.dataTransfer
-  let files = dt.files
-
-  handleFiles(files);
-  box()
-
-let dropbox = document.getElementById("dropbox");
-let dragenter (e: DragEvent) =  
-  e.stopPropagation()
-  e.preventDefault()
-  dropbox.classList.add("active")
-  box ()
-let dragleave (e: DragEvent) =  
-  e.stopPropagation()
-  e.preventDefault()
-  dropbox.classList.remove("active")
-  box ()
-let dragover (e: DragEvent) =  
-  e.stopPropagation()
-  e.preventDefault()
-  box ()
-
-dropbox.addEventListener_dragenter(f1 dragenter, false)
-dropbox.addEventListener_dragleave(f1 dragleave, false)
-dropbox.addEventListener_dragover(f1 dragover, false)
-dropbox.addEventListener_drop(f1 drop, false)
-
-let fileInput = document.getElementById("file") :?> HTMLInputElement
-
-fileInput.addEventListener_change(f1 (fun e -> fileInput.files |> handleFiles; box ()), false)
-
-
-
-

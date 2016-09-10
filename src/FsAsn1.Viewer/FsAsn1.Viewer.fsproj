@@ -57,6 +57,9 @@
     <None Include="package.json" />
     <None Include="Fable.Plugins.Test.fsx" />
     <Content Include="fparsec.es6.js" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Data.fs" />
+    <Compile Include="Components.fs" />
     <Compile Include="Viewer.fs" />
     <None Include="index.html" />
   </ItemGroup>
