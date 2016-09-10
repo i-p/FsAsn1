@@ -153,13 +153,14 @@ let syncScroll (sourceEl: HTMLElement)
 let moduleSelector = document.getElementById("module-selector") :?> HTMLSelectElement
 
 let updateSchema () =
-    let selectedValue = moduleSelector.value    
-    let els = schemaViewer.getElementsByClassName("schema")
+    let selectedValue = moduleSelector.value   
+    if selectedValue <> "" then 
+        let els = schemaViewer.getElementsByClassName("schema")
 
-    for i = 0 to int els.length - 1 do
-        els.Item(i).classList.add("hidden")
+        for i = 0 to int els.length - 1 do
+            els.Item(i).classList.add("hidden")
 
-    schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
+        schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
 
 let selectId (el: HTMLElement option) =
     match el with
@@ -513,6 +514,11 @@ module Schemas =
                  DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
                  Url = "/Data/rfc5280.txt" }
 
+module KnownTypes = 
+    let X509Certificate = (Some "Certificate", "X.509 Certificate (RFC 5280)", [Schemas.X509])
+    let CmsSignedData = (Some "ContentInfo", "CMS Signed Data (RFC 3852)", [Schemas.Cms; Schemas.X509])
+    let None = (None, "Unknown type", [])
+
 type ExampleFile = 
     { Path: string
       Description: string
@@ -547,6 +553,22 @@ exampleFiles
     
     listItem.appendChild(link) |> ignore
     listOfExamples.appendChild(listItem) |> ignore)
+
+let schemaSelectorEl = document.getElementById("schema-selector")
+
+let knownTypes = [KnownTypes.X509Certificate; KnownTypes.CmsSignedData; KnownTypes.None]
+
+knownTypes
+|> List.iteri (fun index (typeName, displayName, modules) ->
+    
+    let btnEl = document.createElement_button()
+
+    btnEl.textContent <- displayName
+    
+    btnEl.setAttribute("data-known-type", string index)
+
+    schemaSelectorEl.appendChild(btnEl) |> ignore)
+
 
 let loadExampleFile exampleFile =
     match List.tryFind (fun ef -> ef.Path = exampleFile) exampleFiles with
@@ -583,24 +605,62 @@ if location.hash.StartsWith("#example=") then
 
 window.addEventListener_hashchange(f1(fun e -> location.hash.Substring("#example=".Length) |> loadExampleFile; box ()))
     
+
+let previewInfoEl = document.getElementById("preview-info")
+
+
 let handleFiles (fs: FileList) =
-  let reader = FileReader.Create()
+
+    let readFile (file: File) modules typeName = 
+        let reader = FileReader.Create()
   
-  reader.onload <- f1(fun e ->
-      let data = (createNew JS.Uint8Array reader.result) :?> byte[]
+        reader.onload <- f1(fun e ->
+            let data = (createNew JS.Uint8Array reader.result) :?> byte[]
       
-      read data [] None      
-      document.getElementById("intro").classList.add("hidden")
-      document.querySelectorAll(".viewer,.schema-viewer,.hex-viewer") 
-      |> toSeq
-      |> Seq.iter (fun n -> n.classList.remove("hidden"))
-      box ())
+            read data modules typeName
+            document.getElementById("intro").classList.add("hidden")
+            document.querySelectorAll(".viewer,.schema-viewer,.hex-viewer") 
+            |> toSeq
+            |> Seq.iter (fun n -> n.classList.remove("hidden"))
+            box ())
+    
+        document.getElementById("file-info").textContent <- sprintf "%s (%.2f KB)" file.name (file.size / 1024.0)
 
-  let file = fs.[0]
-  
-  document.getElementById("file-info").textContent <- sprintf "%s (%.2f KB)" file.name (file.size / 1024.0)
+        reader.readAsArrayBuffer(file);
 
-  reader.readAsArrayBuffer(file);
+    let file = fs.[0]  
+    previewInfoEl.textContent <- sprintf "Load %s (%.2f KB) as:" file.name (file.size / 1024.0)
+    previewInfoEl.classList.remove("hidden")
+
+    schemaSelectorEl.classList.remove("hidden")
+
+    schemaSelectorEl.addEventListener_click(f1(fun e -> 
+        let el = e.target :?> HTMLElement        
+
+        match Core.Option.ofObj (el.getAttribute("data-known-type")) with
+        | Some(strIndex) ->
+            let (typeName, _, schemas) = knownTypes.[int strIndex]
+
+            async {
+                try
+                    let! schemaData = schemas |> Seq.map loadSchemaDom |> Async.Parallel
+
+                    schemaData |> Array.iter (snd >> appendTo schemaViewer)
+                    updateSchema()        
+                            
+                    let modules = schemaData |> List.ofArray |> List.map fst
+                
+                    readFile file modules typeName
+                with e ->
+                    console.error(string e)
+
+            } |> Async.Start           
+            ()
+        | None ->
+            ()                                
+        box ()))
+    
+   
 
 let drop (e: DragEvent ) =
   console.log("drop")

@@ -245,6 +245,32 @@
             font-family: 'Open Sans';
             font-size: 14px;
         }
+        button {
+            display: block;
+            width: 100%;
+            height: 30px;
+            background-color: white;
+            border: 1px solid gray;               
+            margin-bottom: -1px;                
+            z-index: 0;     
+            position: relative;
+        }
+        button:first-child {            
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;            
+        }
+        button:last-child {            
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;                        
+        }
+        button:hover {
+            background-color: rgb(255, 250, 244);
+            border-color: orange;
+            z-index: 10;
+        }
+        #preview-info {
+            margin: 15px 0;
+        }
     </style>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Droid+Sans+Mono" rel="stylesheet">
 </head>
@@ -261,7 +287,10 @@
             <input type="file" id="file" name="file" />
 
             <div id="dropbox" class="dropbox">
-                <label for="file">Select</label> or drop file here                
+                <label for="file">Select</label> or drop file here                                
+            </div>
+            <div id="preview-info" class="hidden"></div>
+            <div id="schema-selector" class="hidden">
             </div>
         </div>
         <div id="viewer" class="viewer hidden">
