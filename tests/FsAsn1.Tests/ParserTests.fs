@@ -441,7 +441,7 @@ let ``correctly determine range of a type assignment followed by a comment``() =
     match parseAssignmentsInRange str 0 (str.Length - 1) with
     | ([ta], _) ->
         equal (0, 17) ta.Range.Value
-    | _ -> Assert.Fail()
+    | _ -> raise (AssertionException("No type assignment"))
 
 [<Test>]
 let ``correctly determine range of a value assignment followed by a comment``() =
@@ -449,7 +449,7 @@ let ``correctly determine range of a value assignment followed by a comment``() 
     match parseAssignmentsInRange str 0 (str.Length - 1) with
     | (_, [va]) ->
         equal (0, 19) va.Range.Value        
-    | _ -> Assert.Fail()
+    | _ -> raise (AssertionException("No type assignment"))
 
 let assertRangeIsTrimmed (schema: string) (typeAssignments: Map<string,TypeAssignment>) = 
     typeAssignments

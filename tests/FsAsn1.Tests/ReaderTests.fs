@@ -266,6 +266,7 @@ let elementsWithoutSchemaType =
             | _ -> [])
         (fun col children -> children |> List.concat)
         
+#if !FABLE
 [<Test>]
 let ``read SSL certificate``() =
     let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
@@ -277,6 +278,7 @@ let ``read SSL certificate``() =
         
     CollectionAssert.IsEmpty(unknownElements element)    
     CollectionAssert.IsEmpty(elementsWithoutSchemaType element)
+#endif
 
 let elementsWithMissingComponentName (element: AsnElement) =
     let processElement el children = 
@@ -321,6 +323,7 @@ let shouldHaveComponentName expected (element, parents) =
     let actual = componentName element
     equal (Some expected) actual
 
+#if !FABLE
 [<Test>]
 let ``read PSSSignDataSHA1.sig``() =
     let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc3852.txt")
@@ -348,6 +351,7 @@ let ``read PSSSignDataSHA1.sig``() =
 
     CollectionAssert.IsEmpty(elementsWithMissingComponentName element)
     ()
+#endif
        
 [<Test>]
 let ``read CHOICE element and correctly assign schema types``() =
@@ -393,6 +397,7 @@ let ``read CHOICE element and correctly assign schema types``() =
 
 open FsAsn1.Schema
 
+#if !FABLE
 [<Test>]
 let ``toExpectedTag can return every value of UniversalTag enumeration`` () =
     let examples = 
@@ -427,3 +432,4 @@ let ``toExpectedTag can return every value of UniversalTag enumeration`` () =
                 Assert.Fail(sprintf "Incorrect mapping for universal tag %A" expected)
         | None ->
             Assert.Fail(sprintf "Missing example mapping for universal tag %A" expected)
+#endif
