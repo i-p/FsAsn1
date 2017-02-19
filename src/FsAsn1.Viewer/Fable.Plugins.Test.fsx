@@ -18,62 +18,60 @@ module private Helper =
     let log (info: Fable.ApplyInfo) =
         System.IO.File.AppendAllText(@"c:\logs\fable.log", sprintf "%s %s %A %A %A\n" info.ownerFullName info.methodName info.methodTypeArgs info.args info.methodKind)
 
-    let icall com (info: Fable.ApplyInfo) meth =
+    let icall (info: Fable.ApplyInfo) meth =
         let callee, args = 
             match info.callee with
             | Some c -> (c, info.args)
             | None -> (info.args.Head, info.args.Tail)
             
         Fable.Util.InstanceCall (callee, meth, args)
-        |> Fable.Util.makeCall com info.range info.returnType
+        |> Fable.Util.makeCall info.range info.returnType
         |> Some
 
     let prop (info: Fable.ApplyInfo) p =
         Fable.Util.makeGet info.range info.returnType info.callee.Value (Fable.Util.makeConst p)
         |> Some
 
-
 type FParsecPlugin() =
     interface IReplacePlugin with
-        member x.TryReplace com (info: Fable.ApplyInfo) =
+        member x.TryReplace _com (info: Fable.ApplyInfo) =
             let prop = Helper.prop info
             let emit = Helper.emit info
-            let forward () =
-                if info.args.IsEmpty then                
-                    Fable.Util.makeGet 
-                        info.range 
-                        info.returnType 
-                        (Fable.Expr.Value(Fable.ValueKind.ImportRef("default", "./fparsec")))
-                        (Fable.Util.makeConst info.methodName)
-                    |> Some
-                else
-                    Fable.Util.makeCall
-                        com
-                        info.range
-                        info.returnType
-                        (Fable.Util.ImportCall("./fparsec", "default", Some info.methodName, false, info.args))
-                    |> Some
+            let forwardField () =                                
+                Fable.Util.makeGet 
+                    info.range 
+                    info.returnType 
+                    (Fable.Expr.Value(Fable.ValueKind.ImportRef("default", "fparsec", Fable.ImportKind.CustomImport)))
+                    (Fable.Util.makeConst info.methodName)
+                |> Some
+            let forwardCall () =                
+                Fable.Util.makeCall
+                    info.range
+                    info.returnType
+                    (Fable.Util.ImportCall("fparsec", "default", Some info.methodName, false, info.args))
+                |> Some
 
             match info.ownerFullName with
             | "FParsec.CharParsers" ->
-                match info.methodName with
+                match info.methodName with                
+                | "pint32"
+                | "spaces"
                 | "eof"
+                | "newline"
                 | "anyChar"
                 | "getPosition"
                 | "getUserState"
-                | "skipString"
-                | "skipNewline"
-                | "newline"
+                | "skipNewline" ->
+                    forwardField()        
+                | "pstring"
+                | "skipString"                                
                 | "skipRestOfLine"
                 | "run"
                 | "runParserOnSubstring"
-                | "runParserOnString"
-                | "pstring"
-                | "pint32"
-                | "spaces"
+                | "runParserOnString"                
                 | "numberLiteral"
                 | "many1Satisfy2L" ->
-                    forward()
+                    forwardCall()
                 //TODO move these functions to fparsec.js
                 | "isAsciiUpper" ->
                     emit "$0 >= 'A' && $0 <= 'Z'"
@@ -111,7 +109,7 @@ type FParsecPlugin() =
                 | "preturn"
                 | "tuple3"
                 | "createParserForwardedToRef" ->
-                    forward()
+                    forwardCall()
                 | _ -> 
                     None
             | "FParsec.CharParsers.NumberLiteral" ->
@@ -135,21 +133,21 @@ type FParsecPlugin() =
 
 type ViewerPlugin() =
     interface IReplacePlugin with
-        member x.TryReplace com (info: Fable.ApplyInfo) =
+        member x.TryReplace _com (info: Fable.ApplyInfo) =
             let prop = Helper.prop info
             let emit = Helper.emit info
-            let icall = Helper.icall com info
+            let icall = Helper.icall info
 
             match info.ownerFullName with
             | "System.Char" ->
                 match info.methodName, info.args with
-                | "ToUpper", [Type (Fable.Type.String _)] ->
+                | "ToUpper", [Type _] ->
                      emit "$0.toUpperCase()"
-                | "ToLower", [Type (Fable.Type.String _)] ->
+                | "ToLower", [Type _] ->
                      emit "$0.toLowerCase()"
-                | "IsLower", [Type (Fable.Type.String _)] ->
+                | "IsLower", [Type _] ->
                      emit "$0 >= 'a' && $0 <= 'z'"
-                | "IsUpper", [Type (Fable.Type.String _)] ->
+                | "IsUpper", [Type _] ->
                      emit "$0 >= 'A' && $0 <= 'Z'"
                 | _ ->
                     None
@@ -195,7 +193,6 @@ type ViewerPlugin() =
                 match info.methodName, info.args with
                 | "ReadAllText", [Type (Fable.Type.String _)] ->
                     Fable.Util.makeCall
-                        com
                         info.range
                         info.returnType
                         (Fable.Util.ImportCall("fs", "default", Some "readFileSync", false, info.args)) |> Some                    
