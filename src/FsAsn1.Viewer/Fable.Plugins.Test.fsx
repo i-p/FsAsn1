@@ -195,7 +195,7 @@ type ViewerPlugin() =
                     Fable.Util.makeCall
                         info.range
                         info.returnType
-                        (Fable.Util.ImportCall("fs", "default", Some "readFileSync", false, info.args)) |> Some                    
+                        (Fable.Util.ImportCall("fs", "default", Some "readFileSync", false, List.append info.args [Fable.Util.makeConst "utf8"])) |> Some                    
                 | _ -> None
             | _ ->
                 None
