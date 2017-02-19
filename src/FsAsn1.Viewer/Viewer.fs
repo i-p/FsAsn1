@@ -67,7 +67,7 @@ let hideIntro () =
 
 let fetchSchema info =
     async {
-        let! resp = fetchAsync(info.Url, [])    
+        let! resp = fetchAsync2(info.Url, [])    
         if resp.Ok then
             return! resp.text() |> Async.AwaitPromise                        
         else                    
@@ -76,7 +76,7 @@ let fetchSchema info =
 
 let fetchData url =
     async {
-        let! resp = fetchAsync(url, [Headers [ContentType "application/octet-stream"]])
+        let! resp = fetchAsync2(url, [Headers [ContentType "application/octet-stream"]])
         if resp.Ok then
             return! resp.arrayBuffer() |> Async.AwaitPromise             
         else                    

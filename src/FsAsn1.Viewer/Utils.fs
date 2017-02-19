@@ -107,3 +107,7 @@ let typeStr asnElement =
     | UTCTime(_) -> "UTC_TIME"
     | ExplicitTag(_) -> "EXPLICIT_TAG"
     | Boolean(v) -> "BOOLEAN"
+
+/// Retrieves data from the specified resource.
+let internal fetchAsync2 (url:string, init: Fable.Helpers.Fetch.RequestProperties list) : Async<Fable.Import.Fetch.Response> = 
+    Fable.Import.Fetch.GlobalFetch.fetch(url, unbox init) |> Async.AwaitPromise
