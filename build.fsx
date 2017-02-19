@@ -59,17 +59,16 @@ Target "PrepareNodeEnv" (fun _ ->
 
 Target "BuildJS" (fun _ ->  
     run "./build/js" "node"
-        @"node_modules\fable-compiler\index.js ..\..\src\FsAsn1\FsAsn1.fsproj --outDir ..\..\build\js --plugins ..\..\build\Fable.Plugins.Test.dll"
+        @"node_modules\fable-compiler\index.js ..\..\src\FsAsn1\FsAsn1.Fable.fsproj --outDir ..\..\build\js --plugins ..\..\build\Fable.Plugins.Test.dll --verbose --dll --module umd" 
 )
 
 Target "BuildTestsJS" (fun _ ->
     run "./build/js" "node"
         (@"node_modules\fable-compiler\index.js "
-        + @"..\..\tests\FsAsn1.Tests\FsAsn1.Tests.fsproj "
+        + @"..\..\tests\FsAsn1.Tests\FsAsn1.Tests.Fable.fsproj "
         + @"--outDir ..\..\build\js "
-        + @"--plugins ..\..\build\Fable.Plugins.Test.dll ..\..\build\js\node_modules\fable-plugins-nunit\Fable.Plugins.NUnit.dll "
-        + @"--refs FsAsn1=. "
-        + @"--symbols FABLE")
+        + @"--plugins ..\..\build\Fable.Plugins.Test.dll ..\..\build\js\node_modules\fable-plugins-nunit\Fable.Plugins.NUnit.dll "        
+        + @"--symbols FABLE --module umd")
 )
 
 Target "Babel" (fun _ ->
@@ -88,10 +87,10 @@ Target "RunTestsJS" (fun _ ->
 Target "BuildViewerJS" (fun _ ->  
     run "./build/js" "node"
         (@"node_modules\fable-compiler\index.js " +
-         @"..\..\src\FsAsn1.Viewer\FsAsn1.Viewer.fsproj " +
+         @"..\..\src\FsAsn1.Viewer\FsAsn1.Viewer.Fable.fsproj " +
          @"--outDir ..\..\build\js " +
          @"--plugins ..\..\build\Fable.Plugins.Test.dll " +
-         @"--refs FsAsn1=.")
+         @"--verbose --module umd")
 )
 
 Target "FablePlugin" (fun _ ->
