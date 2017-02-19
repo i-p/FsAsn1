@@ -317,17 +317,11 @@
             baseUrl: 'build/js',
             paths: {
                 'fable-core': 'node_modules/fable-core/fable-core',
-                'big-integer': 'node_modules/big-integer/BigInteger.min',
                 'bennu': 'bennu',
                 'nu-stream': 'bennu/dependencies/nu',
                 'seshet': 'bennu/dependencies/seshet/seshet',
                 'fparsec': 'fparsec'
-            },
-            shim: {
-                'big-integer': {
-                    exports: 'bigInt'
-                }
-            }
+            }            
         });
 
         define("bennu", ["bennu/parse", "bennu/lang", "bennu/text"], function (parse, lang, text) {
