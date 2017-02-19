@@ -73,7 +73,7 @@ let valueStr asnElement =
 
     match asnElement.Value with
     | Integer(v) -> v.ToString() |> Some
-    | ObjectIdentifier(numbers) -> String.Join(".", numbers) |> Some
+    | ObjectIdentifier(numbers) -> String.Join(".", numbers |> Seq.map(fun n -> n.ToString())) |> Some
     //TODO FIX
     | OctetString(v) -> sprintf "%x" v.[0] |> Some
     | PrintableString(v) -> sprintf "\"%s\"" v |> Some
