@@ -43,15 +43,15 @@ let ``spaces works`` () =
 
 [<Test>]
 let ``getPosition works`` () =
-    "a\nb" |> shouldPartiallyParseAs (getPosition |>> toIndexLineColumn)  (0L, 1L, 1L)
+    "a\nb" |> shouldPartiallyParseAs (getPosition |>> toIndexLineColumn)  (0, 1, 1)
 
 [<Test>]
 let ``getPosition works after a character is read`` () =
-    "a\nb" |> shouldPartiallyParseAs (pstring "a" >>. getPosition |>> toIndexLineColumn) (1L, 1L, 2L)
+    "a\nb" |> shouldPartiallyParseAs (pstring "a" >>. getPosition |>> toIndexLineColumn) (1, 1, 2)
 
 [<Test>]
 let ``getPosition works after a line is read`` () =
-    "a\nb" |> shouldPartiallyParseAs (pstring "a" >>. newline >>. getPosition |>> toIndexLineColumn) (2L, 2L, 1L)
+    "a\nb" |> shouldPartiallyParseAs (pstring "a" >>. newline >>. getPosition |>> toIndexLineColumn) (2, 2, 1)
 
 [<Test>]
 let ``choice works - first alternative`` () =

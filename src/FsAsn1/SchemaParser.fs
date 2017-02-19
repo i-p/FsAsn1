@@ -7,10 +7,19 @@ type UserState =
     { Offset: int32; 
       UseRanges: bool }
 
+let intIndex (p: Position) = int p.Index
+let intColumn (p: Position) = int p.Column
+let intLine (p: Position) = int p.Line
+
+type Position with
+    member this.IntIndex = intIndex this
+    member this.IntColumn = intColumn this
+    member this.IntLine = intLine this
+
 let makeRange (fromPos: Position) (toPos: Position) state =    
     if state.UseRanges then
-        Some(state.Offset + int fromPos.Index, 
-             state.Offset + int toPos.Index)
+        Some(state.Offset + fromPos.IntIndex, 
+             state.Offset + toPos.IntIndex)
     else
         None
 
@@ -156,7 +165,7 @@ let componentType =
 
 let comment = 
     (pstring "--" >>. skipManyTill anyChar (skipString "--" <|> skipNewline) .>> spaces)
-    <|> (getPosition >>= fun p -> if p.Column = 1L then skipRestOfLine true .>> spaces else fail "?")
+    <|> (getPosition >>= fun p -> if p.IntColumn = 1 then skipRestOfLine true .>> spaces else fail "?")
 
 let commaSepListWithComments p =
     many comment >>. sepBy p (str_ws "," .>> many comment) .>> many comment
@@ -355,11 +364,11 @@ let parseModuleDefinition (str: string) (start: int) =
             parseSubstring (spaces >>.  tuple3 getPosition moduleDefinitionBegin getPosition) str lineStart (str.Length - lineStart)
 
         //TODO check that there are only spaces between this position and previous line break
-        let endIndex = str.IndexOf("END", lineStart + int startPos.Index)
+        let endIndex = str.IndexOf("END", lineStart + startPos.IntIndex)
 
-        let types, values = parseAssignmentsInRange str (lineStart + int startPos.Index) endIndex
+        let types, values = parseAssignmentsInRange str (lineStart + startPos.IntIndex) endIndex
 
         { mdb with 
             TypeAssignments = types |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList
             ValueAssignments = values |> List.map (fun va -> (va.Name, va)) |> Map.ofList
-            Range = Some(lineStart + int startPos.Index, endIndex + "END".Length) })
+            Range = Some(lineStart + startPos.IntIndex, endIndex + "END".Length) })

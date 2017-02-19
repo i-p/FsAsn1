@@ -119,11 +119,17 @@ type FParsecPlugin() =
                 | "String" -> prop "string"
                 | _ -> None
             | "FParsec.Position" ->
-                match info.methodName with
-                | "get_Column" -> prop "column"
-                | "get_Index" -> prop "index"
+                match info.methodName with                
+                | "get_Column" -> prop "column"                
+                | "get_Index" -> prop "index"                
                 | "get_Line" -> prop "line"
                 | "get_StreamName" -> prop "streamName"
+                | _ -> None
+            | "FsAsn1.SchemaParser" ->
+                match info.methodName with                
+                | "intColumn" -> emit "$0.column"
+                | "intIndex" -> emit "$0.index"           
+                | "intLine" -> emit "$0.line"            
                 | _ -> None
             | _ -> None
 

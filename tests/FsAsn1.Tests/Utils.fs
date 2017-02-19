@@ -61,7 +61,7 @@ let mkChoiceComponent (name, ty) =
     (name, { ty with ComponentName = Some name })
 
 let toIndexLineColumn (p: Position) =
-    (p.Index, p.Line, p.Column)
+    (p.IntIndex, p.IntLine, p.IntColumn)
 
 let private hexStringToBytes (str: string) =    
     str
