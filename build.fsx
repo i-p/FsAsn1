@@ -54,34 +54,35 @@ Target "RunTPTests" (fun _ ->
 Target "PrepareNodeEnv" (fun _ ->
     FileUtils.mkdir "build/js"
     FileUtils.cp "src/FsAsn1.Viewer/package.json" "build/js"
+    FileUtils.cp "src/FsAsn1.Viewer/fparsec.es6.js" "build/js/fparsec.js"
+    FileUtils.cp "src/FsAsn1.Viewer/webpack.config.js" "build/js"
+    FileUtils.cp "src/FsAsn1.Viewer/webpack.config.test.js" "build/js"
+
     run "./build/js" "npm" "install"
 )
 
 Target "BuildJS" (fun _ ->  
     run "./build/js" "node"
-        @"node_modules\fable-compiler\index.js ..\..\src\FsAsn1\FsAsn1.Fable.fsproj --outDir ..\..\build\js --plugins ..\..\build\Fable.Plugins.Test.dll --verbose --dll --module umd" 
+        @"node_modules\fable-compiler\index.js ..\..\src\FsAsn1\FsAsn1.Fable.fsproj --outDir ..\..\build\js --plugins ..\..\build\Fable.Plugins.Test.dll --verbose --dll --module commonjs --coreLib fable-core" 
 )
 
-Target "BuildTestsJS" (fun _ ->
+Target "BuildTestsJS" (fun _ -> 
     run "./build/js" "node"
         (@"node_modules\fable-compiler\index.js "
         + @"..\..\tests\FsAsn1.Tests\FsAsn1.Tests.Fable.fsproj "
         + @"--outDir ..\..\build\js "
         + @"--plugins ..\..\build\Fable.Plugins.Test.dll ..\..\build\js\node_modules\fable-plugins-nunit\Fable.Plugins.NUnit.dll "        
-        + @"--symbols FABLE --module umd")
+        + @"--symbols FABLE --module commonjs --coreLib fable-core")
 )
 
-Target "Babel" (fun _ ->
-    run "./build/js" "node" 
-        (@"node_modules\babel-cli\bin\babel.js " +
-         @"..\..\src\FsAsn1.Viewer\fparsec.es6.js " +
-         @"-o fparsec.js " +
-         @"--plugins ..\..\build\js\node_modules\babel-plugin-transform-es2015-modules-umd")
+Target "BundleTestsJS" (fun _ ->
+    run "./build/js" "node"
+        @"node_modules\webpack\bin\webpack.js --config webpack.config.test.js"
 )
 
 Target "RunTestsJS" (fun _ ->
     run "./build/js" "node"
-        @"node_modules\mocha\bin\mocha fparsec.js ParserTests.js FParsecTests.js"
+        @"node_modules\mocha\bin\mocha tests.bundle.js"
 )
 
 Target "BuildViewerJS" (fun _ ->  
@@ -90,7 +91,12 @@ Target "BuildViewerJS" (fun _ ->
          @"..\..\src\FsAsn1.Viewer\FsAsn1.Viewer.Fable.fsproj " +
          @"--outDir ..\..\build\js " +
          @"--plugins ..\..\build\Fable.Plugins.Test.dll " +
-         @"--verbose --module umd")
+         @"--verbose --module commonjs --coreLib fable-core")
+)
+
+Target "BundleViewerJS" (fun _ ->
+    run "./build/js" "node"
+        @"node_modules\webpack\bin\webpack.js --config webpack.config.js"
 )
 
 Target "FablePlugin" (fun _ ->
@@ -141,7 +147,6 @@ Target "All" DoNothing
 
 "BuildJS" ==> "BuildTestsJS"
 "BuildTestsJS" ==> "RunTestsJS"
-"Babel" ==> "RunTestsJS"
 
 "BuildJS" ==> "BuildViewerJS"
 

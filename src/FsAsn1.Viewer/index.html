@@ -310,35 +310,8 @@
             </div>
         </div>
     </main>
-    <script src="build/js/node_modules/core-js/client/core.min.js"></script>  
-    <script src="build/js/node_modules/requirejs/require.js"></script>
-    <script>
-        requirejs.config({
-            baseUrl: 'build/js',
-            paths: {
-                'fable-core': 'node_modules/fable-core',                
-                'bennu': 'bennu',
-                'nu-stream': 'bennu/dependencies/nu',
-                'seshet': 'bennu/dependencies/seshet/seshet',
-                'fparsec': 'fparsec'
-            }            
-        });
 
-        define("bennu", ["bennu/parse", "bennu/lang", "bennu/text"], function (parse, lang, text) {
-            return {
-                parse: parse,
-                lang: lang,
-                text: text
-            };
-        });
 
-        define("nu-stream", ["nu-stream/stream"], function (stream) {
-            return {
-                stream: stream
-            };
-        });
-
-        requirejs(["Viewer"]);
-    </script>
+    <script src="build/js/public/bundle.js"></script>    
 </body>
 </html>

@@ -1,7 +1,7 @@
 
 import {parse, text, lang} from "bennu"
 import {stream} from "nu-stream"
-import * as List from "fable-core/umd/List"
+import * as List from "fable-core/List"
 
 //TODO class
 function LastConsumedPosition(index, line, column, previous) {

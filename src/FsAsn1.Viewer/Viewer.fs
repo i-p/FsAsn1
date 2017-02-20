@@ -17,6 +17,8 @@ open FsAsn1.Viewer.Data
 open FsAsn1.Viewer.Utils
 open FsAsn1.Viewer.Components
 
+Fable.Import.Node.require.Invoke("core-js") |> ignore
+
 let byId = document.getElementById
 
 let schemaViewer        = byId "schema-viewer"
