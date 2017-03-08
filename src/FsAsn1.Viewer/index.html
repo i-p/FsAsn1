@@ -8,6 +8,15 @@
             font-size: 18px;
             margin: 0;
         }
+        html { height: 100%; }
+
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            height: 100%;
+            margin: 0;
+        }
+
         header {
             padding: 5px;
             background-color: #013988;
@@ -15,17 +24,9 @@
             color: white;
         }
         main {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 31px;
-            bottom: 0;
+            flex: 1 1 auto;            
         }
-
-        body {
-            margin: 0;
-        }
-
+        
         #bytes {
             margin-bottom: 5px;
         }
@@ -42,23 +43,19 @@
             margin: 2px;
         }
 
-        .viewer {
-            float: left;
-            width: 30%;
-            overflow-y: scroll;
-            flex-grow: 1;
+        .viewer {            
+            flex: 1 1 30%;
+            overflow-y: scroll;            
         }
 
-        .schema-viewer {
-            float: left;
-            width: 30%;            
-            flex-grow: 1;
+        .schema-viewer {            
+            flex: 1 1 30%;         
+            overflow: hidden;   
             display: flex;
             flex-direction: column;
         }
 
-        .hex-viewer {
-            float: left;
+        .hex-viewer {            
             overflow-y: scroll;
             background-color: #f8fbff;
         }
@@ -79,7 +76,7 @@
             font-size: 13px;
             background-color: #f8fbff;
             padding-left: 10px;
-            overflow-y: scroll;
+            overflow: scroll;
         }
 
         .schema-viewer .hover {
