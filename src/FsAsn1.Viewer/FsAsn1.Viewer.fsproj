@@ -62,6 +62,8 @@
     <Compile Include="Components.fs" />
     <Compile Include="Viewer.fs" />
     <None Include="index.html" />
+    <Content Include="webpack.config.js" />
+    <Content Include="webpack.config.test.js" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Fable.Core">
