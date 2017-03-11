@@ -1,4 +1,4 @@
-#r @"packages\FAKE\tools\FakeLib.dll"
+#r "packages/FAKE/tools/FakeLib.dll"
 #r "packages/Suave/lib/net40/Suave.dll"
 
 open System
@@ -13,7 +13,7 @@ let buildDir = "./build/"
 
 let run workingDir fileName args =
     let fileName, args = "cmd", "/C " + fileName + " " + args
-    let ok = ProcessHelper. execProcess (fun info ->
+    let ok = ProcessHelper.execProcess (fun info ->
         info.FileName <- fileName
         info.WorkingDirectory <- workingDir
         info.Arguments <- args) TimeSpan.MaxValue
@@ -24,6 +24,19 @@ Target "Clean" (fun _ ->
     CleanDir buildDir
 )
 
+
+Target "PrepareNodeEnv" (fun _ ->
+    FileUtils.mkdir "build/js"
+    FileUtils.cp "src/FsAsn1.Viewer/package.json" "build/js"
+    FileUtils.cp "src/FsAsn1.Viewer/fparsec.es6.js" "build/js/fparsec.js"
+    FileUtils.cp "src/FsAsn1.Viewer/webpack.config.js" "build/js"
+    FileUtils.cp "src/FsAsn1.Viewer/webpack.config.test.js" "build/js"
+
+    run "./build/js" "npm" "install"
+)
+
+// PrepareNodeEnv must be run before this target because Fable.Core is referenced 
+// from npm module fable-core.
 Target "Build" (fun _ ->
     !! "FsAsn1.sln"
     |> MSBuildRelease buildDir "Rebuild"
@@ -41,62 +54,14 @@ Target "RunTPTests" (fun _ ->
 
     let tpAssemblies = """
 #I __SOURCE_DIRECTORY__
-#r @"..\..\src\FsAsn1.TypeProvider\bin\Release\FsAsn1.dll"
-#r @"..\..\src\FsAsn1.TypeProvider\bin\Release\FsAsn1.TypeProvider.dll"
+#r @"../../src/FsAsn1.TypeProvider/bin/Release/FsAsn1.dll"
+#r @"../../src/FsAsn1.TypeProvider/bin/Release/FsAsn1.TypeProvider.dll"
 """
     //TODO restore previous content
     System.IO.File.WriteAllText("tests/FsAsn1.Tests/load-tp-assemblies.fsx", tpAssemblies) 
 
     !! "tests/FsAsn1.Tests/Script1.fsx"
     |> Seq.iter (fun f -> executeFSI "./" f Seq.empty |> snd |> Seq.iter (fun msg -> if msg.IsError then traceError msg.Message else trace msg.Message))
-)
-
-Target "PrepareNodeEnv" (fun _ ->
-    FileUtils.mkdir "build/js"
-    FileUtils.cp "src/FsAsn1.Viewer/package.json" "build/js"
-    FileUtils.cp "src/FsAsn1.Viewer/fparsec.es6.js" "build/js/fparsec.js"
-    FileUtils.cp "src/FsAsn1.Viewer/webpack.config.js" "build/js"
-    FileUtils.cp "src/FsAsn1.Viewer/webpack.config.test.js" "build/js"
-
-    run "./build/js" "npm" "install"
-)
-
-Target "BuildJS" (fun _ ->  
-    run "./build/js" "node"
-        @"node_modules\fable-compiler\index.js ..\..\src\FsAsn1\FsAsn1.Fable.fsproj --outDir ..\..\build\js --plugins ..\..\build\Fable.Plugins.Test.dll --verbose --dll --module commonjs --coreLib fable-core" 
-)
-
-Target "BuildTestsJS" (fun _ -> 
-    run "./build/js" "node"
-        (@"node_modules\fable-compiler\index.js "
-        + @"..\..\tests\FsAsn1.Tests\FsAsn1.Tests.Fable.fsproj "
-        + @"--outDir ..\..\build\js "
-        + @"--plugins ..\..\build\Fable.Plugins.Test.dll ..\..\build\js\node_modules\fable-plugins-nunit\Fable.Plugins.NUnit.dll "        
-        + @"--symbols FABLE --module commonjs --coreLib fable-core")
-)
-
-Target "BundleTestsJS" (fun _ ->
-    run "./build/js" "node"
-        @"node_modules\webpack\bin\webpack.js --config webpack.config.test.js"
-)
-
-Target "RunTestsJS" (fun _ ->
-    run "./build/js" "node"
-        @"node_modules\mocha\bin\mocha tests.bundle.js"
-)
-
-Target "BuildViewerJS" (fun _ ->  
-    run "./build/js" "node"
-        (@"node_modules\fable-compiler\index.js " +
-         @"..\..\src\FsAsn1.Viewer\FsAsn1.Viewer.Fable.fsproj " +
-         @"--outDir ..\..\build\js " +
-         @"--plugins ..\..\build\Fable.Plugins.Test.dll " +
-         @"--verbose --module commonjs --coreLib fable-core")
-)
-
-Target "BundleViewerJS" (fun _ ->
-    run "./build/js" "node"
-        @"node_modules\webpack\bin\webpack.js --config webpack.config.js"
 )
 
 Target "FablePlugin" (fun _ ->
@@ -106,6 +71,46 @@ Target "FablePlugin" (fun _ ->
         Out "./build/Fable.Plugins.Test.dll"
     ]
 )
+
+Target "BuildJS" (fun _ ->  
+    run "./build/js" "node"
+        @"node_modules/fable-compiler/index.js ../../src/FsAsn1/FsAsn1.Fable.fsproj --outDir ../../build/js --plugins ../../build/Fable.Plugins.Test.dll --verbose --dll --module commonjs --coreLib fable-core" 
+)
+
+Target "BuildTestsJS" (fun _ -> 
+    run "./build/js" "node"
+        (@"node_modules/fable-compiler/index.js "
+        + @"../../tests/FsAsn1.Tests/FsAsn1.Tests.Fable.fsproj "
+        + @"--outDir ../../build/js "
+        + @"--plugins ../../build/Fable.Plugins.Test.dll ../../build/js/node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll "        
+        + @"--symbols FABLE --module commonjs --coreLib fable-core")
+)
+
+Target "BundleTestsJS" (fun _ ->
+    run "./build/js" "node"
+        @"node_modules/webpack/bin/webpack.js --config webpack.config.test.js"
+)
+
+Target "RunTestsJS" (fun _ ->
+    run "./build/js" "node"
+        @"node_modules/mocha/bin/mocha tests.bundle.js"
+)
+
+Target "BuildViewerJS" (fun _ ->  
+    run "./build/js" "node"
+        (@"node_modules/fable-compiler/index.js " +
+         @"../../src/FsAsn1.Viewer/FsAsn1.Viewer.Fable.fsproj " +
+         @"--outDir ../../build/js " +
+         @"--plugins ../../build/Fable.Plugins.Test.dll " +
+         @"--verbose --module commonjs --coreLib fable-core")
+)
+
+Target "BundleViewerJS" (fun _ ->
+    run "./build/js" "node"
+        @"node_modules/webpack/bin/webpack.js --config webpack.config.js"
+)
+
+
 
 
 
