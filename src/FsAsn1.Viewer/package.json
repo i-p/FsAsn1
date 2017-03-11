@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "fable-compiler": "^0.7.42",
+    "fable-compiler": "0.7.42",
     "mocha": "^3.0.1",        
     "bennu": "^17.3.0",
     "fable-core": "^0.7.26",
