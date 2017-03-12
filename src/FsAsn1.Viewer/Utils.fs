@@ -110,4 +110,10 @@ let typeStr asnElement =
 
 /// Retrieves data from the specified resource.
 let internal fetchAsync2 (url:string, init: Fable.Helpers.Fetch.RequestProperties list) : Async<Fable.Import.Fetch.Response> = 
-    Fable.Import.Fetch.GlobalFetch.fetch(url, unbox init) |> Async.AwaitPromise
+    let pathname = document.location.pathname
+    let basePath = 
+        match pathname.LastIndexOf('/') with
+        | -1 -> ""
+        | lastSlash -> pathname.Substring(0, lastSlash)
+
+    Fable.Import.Fetch.GlobalFetch.fetch(basePath + url, unbox init) |> Async.AwaitPromise

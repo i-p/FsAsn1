@@ -118,13 +118,17 @@ open Suave
 open Suave.Operators
 
 Target "WebServer" (fun _ ->
+    let homeDir = Environment.CurrentDirectory
+    let dataDir = System.IO.Path.Combine(homeDir, "tests\FsAsn1.Tests\Data")
     let app : WebPart =
   
-        choose [
+        choose [            
             Filters.GET >=> choose [ 
-                Filters.path "/" >=> Files.browseFileHome "src/FsAsn1.Viewer/index.html";
-                Filters.pathScan "/Data/%s" (fun c -> Writers.setMimeType("application/octet-stream") >=> Files.sendFile (Files.resolvePath @"C:\dev\FsAsn1\tests\FsAsn1.Tests\Data" c) false);                
-                Files.browseHome ]
+                Filters.path "/asn1-viewer/" >=> Files.browseFileHome "src/FsAsn1.Viewer/index.html";
+                Filters.pathScan "/asn1-viewer/Data/%s" 
+                    (fun c -> Writers.setMimeType("application/octet-stream") 
+                                >=> Files.sendFile (Files.resolvePath dataDir c) false);                
+                Filters.path "/asn1-viewer/bundle.js" >=> Files.browseFileHome "build/js/public/bundle.js" ]
             RequestErrors.NOT_FOUND "Page not found." ]
 
     let mimeTypes =
@@ -133,7 +137,7 @@ Target "WebServer" (fun _ ->
 
     startWebServer { 
         defaultConfig with 
-            homeFolder = Some @"C:\dev\FsAsn1"
+            homeFolder = Some homeDir
             mimeTypesMap = mimeTypes
             logger = Suave.Logging.Loggers.ConsoleWindowLogger(Logging.LogLevel.Debug)
         } app    
