@@ -33,11 +33,22 @@ open System.IO
 open FsAsn1.Reader
 open NUnit.Framework
 
+let rfc = File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer")
 
-let s = FsAsn1.SchemaParser.parseTypeAssignments ss |> dict
+//TODO add utility method to ModuleDefinition
+let md: FsAsn1.Schema.ModuleDefinition = 
+    { Identifier = "Test"
+      Oid = Array.empty
+      TagDefault = None
+      ExtensibilityImplied = false
+      TypeAssignments = FsAsn1.SchemaParser.parseAssignments ss |> fst |> Seq.map (fun a -> a.Name, a) |> Map.ofSeq
+      ValueAssignments = Map.empty
+      Imports = []
+      Range = None }
 
-let ctx = AsnContext(AsnArrayStream(File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), (fun str -> if s.ContainsKey str then Some s.[str] else None ))
-let element = readElement ctx (Some s.["Certificate"]) 
+let ctx = AsnContext(AsnArrayStream(File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), [md])
+//TODO add utility method to ModuleDefinition
+let element = readElement ctx (Some (Map.find "Certificate" md.TypeAssignments).Type) 
 
 type F = FsAsn1.Provided.AsnProvider<ss>
 
