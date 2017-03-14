@@ -60,8 +60,17 @@ Target "RunTPTests" (fun _ ->
     //TODO restore previous content
     System.IO.File.WriteAllText("tests/FsAsn1.Tests/load-tp-assemblies.fsx", tpAssemblies) 
 
-    !! "tests/FsAsn1.Tests/Script1.fsx"
-    |> Seq.iter (fun f -> executeFSI "./" f Seq.empty |> snd |> Seq.iter (fun msg -> if msg.IsError then traceError msg.Message else trace msg.Message))
+    let printMessage = fun msg -> if msg.IsError then traceError msg.Message else trace msg.Message
+    let success = 
+        !! "tests/FsAsn1.Tests/Script1.fsx"
+        |> Seq.map (fun f -> 
+            let success, messages = executeFSI "./" f Seq.empty 
+        
+            messages |> Seq.iter printMessage
+            success)
+        |> Seq.forall id
+    
+    if not success then failwithf "Type provider tests failed" else ()
 )
 
 Target "FablePlugin" (fun _ ->
