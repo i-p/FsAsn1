@@ -54,8 +54,8 @@ Target "RunTPTests" (fun _ ->
 
     let tpAssemblies = """
 #I __SOURCE_DIRECTORY__
-#r @"../../src/FsAsn1.TypeProvider/bin/Release/FsAsn1.dll"
-#r @"../../src/FsAsn1.TypeProvider/bin/Release/FsAsn1.TypeProvider.dll"
+#r @"../../build/FsAsn1.dll"
+#r @"../../build/FsAsn1.TypeProvider.dll"
 """
     //TODO restore previous content
     System.IO.File.WriteAllText("tests/FsAsn1.Tests/load-tp-assemblies.fsx", tpAssemblies) 
