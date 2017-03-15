@@ -126,8 +126,9 @@ export default {
 	pipe2: (p1, p2, f) =>
 		parse.bind(p1, x => parse.bind(p2, y => parse.of(f(x)(y)))),
 	createParserForwardedToRef: () =>
-		{ let ref = {contents: undefined}; return [parse.late(() => ref.contents), ref]},
-	//TODO fix
-	many1Satisfy2L: (p1, p2, p3) =>
-		many1String(parse.token(x => /[0-9a-zA-Z-]/.test(x)))
+		{ let ref = {contents: undefined}; return [parse.late(() => ref.contents), ref]},	
+    many1Satisfy2L: (f1, f, p3) =>
+        parse.bind(parse.token(f1), 
+            x => parse.bind(manyString(parse.token(f)),
+                y => parse.of(x + y)))
 };
