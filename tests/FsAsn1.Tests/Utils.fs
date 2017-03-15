@@ -19,13 +19,9 @@ type InitMsgUtils() =
     inherit FSharpCustomMessageFormatter()
 #endif
 
-type Assert = 
-    // assert.deepEqual(actual, expected)
-    [<Import("deepEqual","assert")>]
-    static member AreEqual(actual, expected) : unit = NUnit.Framework.Assert.AreEqual(expected, actual)
 
 let equal (expected: 'T) (actual: 'T) =    
-    Assert.AreEqual(actual, expected)
+    NUnit.Framework.Assert.AreEqual(expected, actual)
 
 let parse p str =
     match runParserOnString p { Offset = 0; UseRanges = false } "" str with

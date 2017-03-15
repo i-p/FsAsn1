@@ -14,7 +14,7 @@
     "bennu": "^17.3.0",
     "fable-core": "^0.7.26",
     "fable-import-fetch": "^0.2.4",
-    "fable-plugins-nunit": "^0.7.3",
+    "fable-plugins-nunit": "0.7.3",
     "requirejs": "^2.2.0",
     "core-js": "^2.4.1",
     "webpack": "^2.2.1",
