@@ -3,6 +3,28 @@
 open FParsec
 open Schema
 
+type ImportAttribute(selector: string, from: string) =
+    inherit System.Attribute()
+
+// WORKAROUND - FABLE
+// Translation of choice parser to JavaScript doesn't work.
+// Function that represent parser in JavaScript needs to have specific properties
+// but in this case they are not accessible, because the function (clo1 in the example below) 
+// is not returned directly.
+// 
+// var p = function () {
+//   var clo1 = _fparsec2.default.choice([_fparsec2.default.pstring("a")]);
+// 
+//   return function (arg10) {
+//     return clo1(arg10);
+//   };
+// }();
+// 
+// Using own wrapper function with ImportAttribute 
+// and changing the input type to array seems to work around this issue.
+[<Import("choice", "fparsec")>]
+let choice (ps: Parser<'a,'b>[]) = FParsec.Primitives.choice ps
+
 type UserState = 
     { Offset: int32; 
       UseRanges: bool }
@@ -212,24 +234,24 @@ let valueAssignment =
                    .>>. value)
     |>> fun (r, ((n, ty), v)) -> { Name = n; Type = ty; Value = v; Range = r }
 
-//TODO choice doesn't work in JS yet
 // sequenceOfType must be before sequenceType
 // setOfType must be before setType
 let ptypeKind = 
-    (sequenceOfType
-    <|> sequenceType
-    <|> setOfType
-    <|> setType
-    <|> choiceType
-    <|> pnull 
-    <|> bitString
-    <|> integer
-    <|> prefixedType
-    <|> objectIdentifierType
-    <|> booleanType
-    <|> octetStringType
-    <|> anyType
-    <|> (typeReference |>> ReferencedType))
+    choice [|
+        sequenceOfType
+        sequenceType
+        setOfType
+        setType
+        choiceType
+        pnull 
+        bitString
+        integer
+        prefixedType
+        objectIdentifierType
+        booleanType
+        octetStringType
+        anyType
+        (typeReference |>> ReferencedType) |]
 
 ptypeRef :=
     withRange (ptypeKind .>>. opt pconstraint)  

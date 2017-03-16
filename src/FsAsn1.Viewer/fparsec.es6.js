@@ -45,9 +45,10 @@ let wrapInSuccess = (p) =>
             s => parse.of({ Case: 'Success', Fields: [r, s.userState, s.position]})))
 
 
-let choice = ps =>
+export let choice = ps =>
     parse.choicea(Array.from(ps))
 
+//TODO turn into separate non-default exports
 export default {
     eof: parse.eof,
 	fail: (msg) => parse.never(msg),

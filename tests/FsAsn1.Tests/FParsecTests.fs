@@ -5,6 +5,8 @@ open NUnit.Framework
 open FParsec
 open FsAsn1.Tests.Utils
 
+let choice = FsAsn1.SchemaParser.choice
+
 [<Test>]
 let ``pstring works``() =
     "a" |> shouldParseAs (pstring "a") "a"
@@ -55,11 +57,11 @@ let ``getPosition works after a line is read`` () =
 
 [<Test>]
 let ``choice works - first alternative`` () =
-    "a" |> shouldParseAs (choice [pstring "a"; pstring "b"]) "a"
+    "a" |> shouldParseAs (choice [|pstring "a"; pstring "b"|]) "a"
 
 [<Test>]
 let ``choice works - second alternative`` () =
-    "b" |> shouldParseAs (choice [pstring "a"; pstring "b"]) "b"
+    "b" |> shouldParseAs (choice [|pstring "a"; pstring "b"|]) "b"
 
 [< Test>]
 let ``sepBy works`` ()=
