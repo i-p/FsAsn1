@@ -3,7 +3,7 @@
 open FParsec
 open Schema
 
-type ImportAttribute(selector: string, from: string) =
+type ImportAttribute(_selector: string, _from: string) =
     inherit System.Attribute()
 
 // WORKAROUND - FABLE
@@ -348,11 +348,11 @@ let parseAssignmentsInRange (str: string) fromIndex toIndex =
             match (runParserOnSubstring typeAssignment { Offset = start; UseRanges = true } "" str start count) with
             | Success(typeAssignment, _, _) -> 
                 recurse ({ typeAssignment with Range = typeAssignment.Range |> Option.map trimRangeEnd } :: acc) acc2
-            | Failure(errorMsg, _, _) ->                
+            | Failure(_errorMsg, _, _) ->                
                 match (runParserOnSubstring valueAssignment { Offset = start; UseRanges = true } "" str start count) with
                 | Success(valueAssignment, _, _) ->                     
                     recurse acc ({ valueAssignment with Range = valueAssignment.Range |> Option.map trimRangeEnd } :: acc2)
-                | Failure(errorMsg, _, _) ->
+                | Failure(_errorMsg, _, _) ->
                     recurse acc acc2
          
     let types, values = parseNext fromIndex [] []
@@ -383,8 +383,8 @@ let parseModuleDefinition (str: string) (start: int) =
     |> Option.bind(fun i -> previousIndex str (i - 1) (isWhitespace))    
     |> Option.map(fun lineStart -> 
                 
-        let (startPos, mdb, endPos) = 
-            parseSubstring (spaces >>.  tuple3 getPosition moduleDefinitionBegin getPosition) str lineStart (str.Length - lineStart)
+        let (startPos, mdb) = 
+            parseSubstring (spaces >>. tuple2 getPosition moduleDefinitionBegin) str lineStart (str.Length - lineStart)
 
         //TODO check that there are only spaces between this position and previous line break
         let endIndex = str.IndexOf("END", lineStart + startPos.IntIndex)

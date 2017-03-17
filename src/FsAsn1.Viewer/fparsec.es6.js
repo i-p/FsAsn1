@@ -124,6 +124,10 @@ export default {
             x => parse.bind(p2, 
                 y => parse.bind(p3, 
                     z => parse.of([x, y, z])))),
+    tuple2: (p1,p2,f) =>
+        parse.bind(p1, 
+            x => parse.bind(p2, 
+                y => parse.of([x, y]))),
 	pipe2: (p1, p2, f) =>
 		parse.bind(p1, x => parse.bind(p2, y => parse.of(f(x)(y)))),
 	createParserForwardedToRef: () =>

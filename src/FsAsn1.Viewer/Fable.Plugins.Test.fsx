@@ -107,6 +107,7 @@ type FParsecPlugin() =
                 | "pipe3"
                 | "pipe2"
                 | "preturn"
+                | "tuple2"
                 | "tuple3"
                 | "createParserForwardedToRef" ->
                     forwardCall()

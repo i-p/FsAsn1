@@ -44,7 +44,7 @@ let shouldWrapInProvidedType ty =
     match ty with
     | SequenceType _ -> true
     | IntegerType [] -> false
-    | IntegerType namedValues -> true
+    | IntegerType _namedValues -> true
     | _ ->
         failwith <| sprintf "Unsupported top level type %A" ty
 
@@ -77,7 +77,7 @@ let rec toTypeRep ty lookupType =
     | TaggedType(_, _, Some Explicit, innerTy) ->
         let innerRep = toTypeRep innerTy lookupType
         { innerRep with SchemaType = ty; FromElement = <@ getPrimitiveValue >> %coerceToElement >> %(innerRep.FromElement) @> }
-    | TaggedType(_, _, None, innerTy) ->
+    | TaggedType(_, _, None, _innerTy) ->
         // TODO use the default TagKind as specified by ModuleDefinition
         failwith "Not implemented yet"
     | ReferencedType(name) ->
@@ -123,7 +123,7 @@ let toProvidedMethod (methodSpec: MethodSpec) =
         IsStaticMethod = methodSpec.IsStatic,
         InvokeCode = methodSpec.Invoker)
 
-let factoryMethod ptd ty =
+let factoryMethod ptd _ty =
     { Name = "fromElement"
       Parameters = [ ("element", typeof<AsnElement>) ]
       ReturnType = ptd
@@ -139,7 +139,7 @@ let providedProperties ty lookupType : seq<PropertySpec> =
     match ty with
     | SequenceType components ->
         components 
-        |> Seq.mapi (fun index (ComponentType(name, ty, modifier)) ->
+        |> Seq.mapi (fun index (ComponentType(name, ty, _modifier)) ->
             let typeRep = toTypeRep ty lookupType
             let getter = fun (fromElement: Expr<AsnElement -> obj>) ->
                 fun (arg: Expr) ->
@@ -152,7 +152,7 @@ let providedProperties ty lookupType : seq<PropertySpec> =
             match namedNumberValue with
             | SignedNumber v ->
                 property(name, None, typeof<bigint>, Static(<@@ v @@>))
-            | DefinedValue name ->
+            | DefinedValue _name ->
                 failwith "Defined value not supported yet" )
     | _ -> failwith "Not supported yet"
 
@@ -160,7 +160,7 @@ let toGetterCode : GetterSpec -> Expr list -> Expr = function
     | Instance getter ->
         fun args -> getter args.[0]
     | Static getter ->
-        fun args -> getter
+        fun _ -> getter
 
 let toProvidedProperty (lookupProvidedType: string -> ProvidedTypeDefinition option) (prop: PropertySpec) =
     let propertyType =
@@ -190,7 +190,7 @@ let providedTopLevelTypesFromSchema schema =
 
     let lookupProvidedType name = Map.tryFind name providedTypes |> Option.map snd
 
-    providedTypes |> Map.iter (fun x (ty, ptd) ->
+    providedTypes |> Map.iter (fun _ (ty, ptd) ->
         providedMethods ptd ty |> Seq.iter (toProvidedMethod >> ptd.AddMember)
         providedProperties ty.Kind lookupAsnType |> Seq.iter
             ((toProvidedProperty lookupProvidedType) >> ptd.AddMember))
@@ -198,9 +198,9 @@ let providedTopLevelTypesFromSchema schema =
     providedTypes
 
 [<TypeProvider>]
-type AsnProviderImpl (config : TypeProviderConfig) as this =
+type AsnProviderImpl (_config : TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces ()
-
+    
     let ns = "FsAsn1.Provided"
     let asm = Assembly.GetExecutingAssembly()
     let providerType = ProvidedTypeDefinition(asm, ns, "AsnProvider", Some typeof<obj>)

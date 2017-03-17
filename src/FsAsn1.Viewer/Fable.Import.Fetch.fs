@@ -3,6 +3,7 @@ open System
 open Fable.Core
 open Fable.Import.JS
 
+#nowarn "1182"
 module Fetch =
 
     type [<AbstractClass; Import("*","Body")>] Body() =

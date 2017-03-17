@@ -4,6 +4,7 @@ open System
 open Fable.Core
 open Fable.Import.Browser
 open FsAsn1.Types
+open JsUtils
 
 let syncScroll (sourceEl: HTMLElement) 
                (sourceContainer: HTMLElement) 
@@ -15,12 +16,6 @@ let syncScroll (sourceEl: HTMLElement)
 
 let addClass (cls: string) (el: HTMLElement) = el.classList.add(cls)
 let removeClass (cls: string) (el: HTMLElement) = el.classList.remove(cls)
-
-[<Emit("$0.charCodeAt($1)")>]
-let charCodeAt (str: string) (i) : byte = failwith "JS only"
-
-[<Emit("($0).toString(16)")>]
-let toHex i : string = failwith "JS only"
 
 let base64ToByteArray b64 =
     let byteString = window.atob(b64)
@@ -37,9 +32,6 @@ let appendTo (targetEl: HTMLElement) el =
 
 let tryGetElementById id : HTMLElement option =     
     document.getElementById id |> Core.Option.ofObj
-
-[<Emit("$1[$0]")>]
-let getProp p obj: obj = failwith "JS only"
 
 let rec findParent predicate (el: HTMLElement) =
     match Core.Option.ofObj el with
@@ -112,7 +104,7 @@ let typeStr asnElement =
     | BitString(_) -> "BITSTRING"
     | UTCTime(_) -> "UTC_TIME"
     | ExplicitTag(_) -> "EXPLICIT_TAG"
-    | Boolean(v) -> "BOOLEAN"
+    | Boolean(_) -> "BOOLEAN"
 
 /// Retrieves data from the specified resource.
 let internal fetchAsync2 (url:string, init: Fable.Helpers.Fetch.RequestProperties list) : Async<Fable.Import.Fetch.Response> = 

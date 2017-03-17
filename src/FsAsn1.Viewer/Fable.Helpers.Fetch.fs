@@ -3,6 +3,8 @@
 /// It also provides a global fetch() method that provides an easy, logical way to fetch resources asynchronously across the network.
 module internal Fable.Helpers.Fetch
 
+#nowarn "1182"
+
 open System
 open Fable.Import.Fetch
 open Fable.Core

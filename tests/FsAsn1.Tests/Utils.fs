@@ -8,11 +8,6 @@ open FsAsn1.Reader
 open FsAsn1.Schema
 open FsAsn1.SchemaParser
 
-type EmitAttribute(macro: string) =
-    inherit System.Attribute()
-type ImportAttribute(memb: string, path: string) =
-    inherit System.Attribute()
-
 #if !FABLE
 // Pretty-print F# value types in error messages
 type InitMsgUtils() =
@@ -133,3 +128,10 @@ let shouldReadAsType typeName expected (hexString, moduleDefinition: FsAsn1.Sche
         if isDummy expected then convertToDummy el else el
 
     equal (typeName, expected) (el.SchemaType.Value.TypeName.Value, actual)
+
+#nowarn "1182"
+
+type EmitAttribute(macro: string) =
+    inherit System.Attribute()
+type ImportAttribute(memb: string, path: string) =
+    inherit System.Attribute()

@@ -78,9 +78,9 @@ type AsnElement =
             (x.Offset, x.Offset + 1 + lenOctets + len - 1)
 
         member x.HeaderRange =
-            let len, lenOctets = 
+            let lenOctets = 
                 match x.Header.Length with
-                | Definite(l, lenOctets) -> l, lenOctets
+                | Definite(_, lenOctets) -> lenOctets
                 | Indefinite -> failwith "Not supported"
 
             //TODO length of identifier octet, now assuming 1

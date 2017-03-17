@@ -37,7 +37,7 @@ type AsnArrayStream(arr: byte[], pos: int) =
                 position <- position + len
                 bs
 
-type AsnBoundedStream(stream: IAsnStream, position: int32, limit: int32) =        
+type AsnBoundedStream(stream: IAsnStream, limit: int32) =        
     interface IAsnStream with
         member __.CanRead(len) =
             stream.Position + len <= limit
@@ -50,7 +50,7 @@ type AsnBoundedStream(stream: IAsnStream, position: int32, limit: int32) =
         member __.Position with get() = stream.Position
 
 let createBoundedStream stream (expectedBytes: int32): IAsnStream =    
-    AsnBoundedStream(stream, stream.Position, stream.Position + expectedBytes) :> IAsnStream
+    AsnBoundedStream(stream, stream.Position + expectedBytes) :> IAsnStream
 
 type AsnContext(stream: IAsnStream, modules: ModuleDefinition list) =
     static member Empty = AsnContext(AsnArrayStream([||], 0), [])
@@ -126,7 +126,7 @@ let decodeInteger (bytes: byte[]) : bigint =
     Seq.skip 1 bytes 
     |> Seq.fold (fun sum b -> sum * 256I + (bigint (int b))) (bigint initialValue)
 
-let readRelativeOid (stream: IAsnStream) (length: int) : bigint[] =
+let readRelativeOid (stream: IAsnStream) (_length: int) : bigint[] =
     let rec readNextValue valuesAcc valueAcc =        
         if stream.CanRead(1) then                
             let b = stream.ReadByte() 
@@ -277,7 +277,7 @@ let matchChoiceComponent (ctx: AsnContext) (header: AsnHeader) (components: (str
             | ExplicitlyTaggedType(cls, tag, _)
             | ImplicitlyTaggedType(cls, tag, _) ->
                 (cls, tag) = (header.Class, header.Tag)                
-            | UnresolvedTypeTag(name) -> 
+            | UnresolvedTypeTag(_name) -> 
                 //TODO log
                 false                
             | AnyTag -> 
@@ -290,7 +290,7 @@ let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElem
     let targetElement = 
         previous
         |> List.zip previousElements 
-        |> List.find (fun (el, ComponentType(name, _, _)) -> name = componentName)
+        |> List.find (fun (_, ComponentType(name, _, _)) -> name = componentName)
         |> fst
 
     let equalsOid (oidParts: AsnInteger []) value =
@@ -314,7 +314,7 @@ let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElem
         
         let namedOidValue = 
             knownValues
-            |> List.tryFind (fun (name, va) -> equalsOid parts va.Value)                                    
+            |> List.tryFind (fun (_, va) -> equalsOid parts va.Value)                                    
 
         match namedOidValue with
         | None -> failwith "None"
@@ -344,8 +344,8 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previo
             Some { ty with Kind = TaggedType(toTagClass cls, tag, Some TagKind.Explicit, newType) }, cty :: previous, rest
         | _ ->
             Some ty, cty :: previous, rest
-    | (ComponentType(name, ty, Some (NamedTypeModifier.Default _)) as cty) :: rest
-    | (ComponentType(name, ty, Some NamedTypeModifier.Optional) as cty) :: rest ->       
+    | (ComponentType(_, ty, Some (NamedTypeModifier.Default _)) as cty) :: rest
+    | (ComponentType(_, ty, Some NamedTypeModifier.Optional) as cty) :: rest ->       
         match toExpectedTag ctx ty.Kind with                    
         | UniversalTag(cls, tag)                    
         | ExplicitlyTaggedType(cls, tag, _)
@@ -356,7 +356,7 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previo
                 matchSequenceComponentType ctx header (previous, rest) previousElements
         | UnresolvedTypeTag(_) -> failwith "Not implemented yet"
         | AnyTag -> Some ty, previous, rest
-        | ChoiceComponentTag(cs) -> 
+        | ChoiceComponentTag(_cs) -> 
             failwith "Not implemented yet"
         
 and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
@@ -388,7 +388,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
         ) ([], components)
 
     | Kind(AsnTypeKind.SequenceOfType(_, SequenceOfType.SequenceOfType(ty))) ->
-        readElementsNoState (fun header -> Some ty)        
+        readElementsNoState (fun _ -> Some ty)        
     | Kind(SetType components) ->
         let rec toPair ty =
             match toExpectedTag ctx ty.Kind with
@@ -400,14 +400,14 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
             | ChoiceComponentTag(_) -> failwith "Cannot determine tag of CHOICE type"
                     
         components
-        |> List.map (fun ((ComponentType(_,ty,_)) as ct) -> toPair ty)
+        |> List.map (fun (ComponentType(_,ty,_)) -> toPair ty)
         |> List.groupBy fst
         |> List.map (fun (key, values) -> 
                         match values with
                         | [value] -> value
                         | _ -> failwithf "Multiple components with the same class and tag: %A" key)
         |> Map.ofList
-        |> readElements (fun header componentMap previousElements ->
+        |> readElements (fun header componentMap _previousElements ->
             let key = (header.Class, header.Tag)
             match Map.tryFind key componentMap with
             | Some(ty) ->
@@ -416,11 +416,11 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
                 failwithf "Unexpected component of SET type with class %A and tag %d" header.Class header.Tag)
 
     | Kind(AsnTypeKind.SetOfType(_, SetOfType.SetOfType(ty))) ->        
-        readElementsNoState (fun header -> Some ty)
+        readElementsNoState (fun _ -> Some ty)
     | Kind(ReferencedType name) ->
         readCollection ctx (ctx.LookupType name)
     | None ->
-        readElementsNoState (fun header -> None)
+        readElementsNoState (fun _ -> None)
     | _ ->        
         failwithf "Unexpected collection type %A" ty
            
@@ -469,7 +469,7 @@ and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValue =
         stream.ReadBytes(len) |> Unknown
 
 and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =    
-    let (cls, tagNumber, length) = h.Class, h.Tag, h.Length
+    let (tagNumber, length) = h.Tag, h.Length
     
 
     let failsToMatchHeader expectedTag =        
@@ -511,11 +511,11 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =
         | _ -> ()
                 
         match expectedTag with
-        | Some(UniversalTag(cls, tag)) ->             
+        | Some(UniversalTag(_, _)) ->             
             readValueUniversal ctx tagNumber len ty                            
-        | Some(ExplicitlyTaggedType(cls, tag, taggedTy)) ->            
+        | Some(ExplicitlyTaggedType(_, _, taggedTy)) ->            
             readElement ctx (Some taggedTy) |> AsnValue.ExplicitTag            
-        | Some(ImplicitlyTaggedType(cls, tag, taggedTy)) ->            
+        | Some(ImplicitlyTaggedType(_, _, taggedTy)) ->            
             match toExpectedTag ctx taggedTy.Kind with
             | UniversalTag(cls, tag) 
             | ExplicitlyTaggedType(cls, tag, _) 

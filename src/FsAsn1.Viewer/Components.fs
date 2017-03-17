@@ -8,6 +8,7 @@ open FsAsn1.Types
 open FsAsn1.Reader
 open FsAsn1.Viewer.Utils
 open FsAsn1.Viewer.Data
+open FsAsn1.Viewer.JsUtils
 
 let makeSpan className text =
     let el = document.createElement "span"
@@ -33,7 +34,7 @@ let componentNameEl (el: AsnElement) =
         el.className <- "s-component-name"
         el)
 
-let elInfo (ctx: AsnContext) (asnElement: AsnElement) (parentAsnElements: AsnElement list) =        
+let elInfo (ctx: AsnContext) (asnElement: AsnElement) (_parentAsnElements: AsnElement list) =        
     let (s, e) = asnElement.Range    
     let elId = sprintf "S%d-%d" s e
         
@@ -131,7 +132,7 @@ let makeHexRuns (asnElement: AsnElement) (bytes: byte[]) =
 
     cataAsn fSimple fCollection asnElement
 
-let makeStructureHierarchy (ctx: AsnContext) (parentEl: HTMLElement) (asnElement: AsnElement) =
+let makeStructureHierarchy (ctx: AsnContext) (_parentEl: HTMLElement) (asnElement: AsnElement) =
     let fSimple (el: AsnElement) = 
         fun parents -> 
             elInfo ctx el parents
@@ -157,8 +158,6 @@ let makeSchemaDom (info: SchemaInfo) schema md =
 
     console.time("ranges")
 
-    let tStart = performance.now()
-    
     md.TypeAssignments
     |> Seq.map (fun kvp -> kvp.Value)
     |> Seq.sortBy (fun ta -> fst ta.Range.Value) 
@@ -182,8 +181,6 @@ let makeSchemaDom (info: SchemaInfo) schema md =
         | None -> ()
     )
     
-    let tEnd = performance.now()
-
     console.timeEnd("ranges")
 
     schemaRootEl.setAttribute("data-schema-id", info.Id)

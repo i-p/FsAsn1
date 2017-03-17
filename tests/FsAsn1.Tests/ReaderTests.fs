@@ -256,7 +256,7 @@ let unknownElements =
             match el.Value with 
             | AsnValue.Unknown(_) -> [el]
             | _ -> [])
-        (fun col children -> children |> List.concat)
+        (fun _ children -> children |> List.concat)
         
 let elementsWithoutSchemaType =
     cataAsn 
@@ -264,7 +264,7 @@ let elementsWithoutSchemaType =
             match el.SchemaType with 
             | None -> [el]
             | _ -> [])
-        (fun col children -> children |> List.concat)
+        (fun _ children -> children |> List.concat)
         
 #if !FABLE
 [<Test>]
@@ -315,11 +315,11 @@ let getPath (path: int list) (element: AsnElement) =
 
     go path element []
 
-let shouldHaveType expected (element, parents) =
+let shouldHaveType expected (element, _) =
     let actual = element.SchemaType |> Option.bind (nameOfType)
     equal (Some expected) actual
         
-let shouldHaveComponentName expected (element, parents) =
+let shouldHaveComponentName expected (element, _) =
     let actual = componentName element
     equal (Some expected) actual
 
@@ -331,8 +331,7 @@ let ``read PSSSignDataSHA1.sig``() =
 
     let str2 = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
     let md2 = FsAsn1.SchemaParser.parseModuleDefinition str2 0
-
-    let s = md.Value.TypeAssignments    
+    
     let content = System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + @"\Data\BouncyCastle\cms\sigs\PSSSignDataSHA1.sig")
     let ctx = AsnContext(AsnArrayStream(content, 0), [md.Value; md2.Value])
     

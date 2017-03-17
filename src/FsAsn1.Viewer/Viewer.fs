@@ -16,6 +16,7 @@ open Microsoft.FSharp
 open FsAsn1.Viewer.Data
 open FsAsn1.Viewer.Utils
 open FsAsn1.Viewer.Components
+open FsAsn1.Viewer.JsUtils
 
 Fable.Import.Node.require.Invoke("core-js") |> ignore
 
