@@ -70,11 +70,12 @@ let ``parse named number``() =
 
 [<Test>]
 let ``parse named number list``() =
-    let [n1;n2;n3] = parse namedNumberList "v1(1), v2(2),v3(3)" 
-
-    equal n1 ("v1", SignedNumber(bigint.Parse("1")))
-    equal n2 ("v2", SignedNumber(bigint.Parse("2")))
-    equal n3 ("v3", SignedNumber(bigint.Parse("3")))
+    match parse namedNumberList "v1(1), v2(2),v3(3)" with
+    | [n1;n2;n3] ->        
+        equal n1 ("v1", SignedNumber(bigint.Parse("1")))
+        equal n2 ("v2", SignedNumber(bigint.Parse("2")))
+        equal n3 ("v3", SignedNumber(bigint.Parse("3")))
+    | list -> failwithf "Unexpected list: %A" list
    
 [<Test>]
 let ``parse object identifier value - relative to referenced``() =

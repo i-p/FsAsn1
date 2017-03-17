@@ -137,7 +137,8 @@ let oidComponent =
     <|> ((identifierNoSpace |>> Some) .>>. opt (inParentheses signedNumber))
 
 // X.680 32.11 an object identifier value shall contain at least two arcs
-let oidValue = inBraces (pipe3 (oidComponent .>> spaces) (oidComponent .>> spaces) (many (oidComponent .>> spaces)) (fun c1 c2 rest -> c1 :: c2 :: rest |> OidValue))
+let oidValueComponents = inBraces (pipe3 (oidComponent .>> spaces) (oidComponent .>> spaces) (many (oidComponent .>> spaces)) (fun c1 c2 rest -> c1 :: c2 :: rest))
+let oidValue = oidValueComponents |>> OidValue
 
 let namedType = identifier .>>. ptype
 let valueReference = identifier
@@ -281,10 +282,10 @@ let parseModuleImports =
         pipe3
             (sepBy symbol (str_ws ","))
             (str_ws "FROM" >>. moduleReference)
-            oidValue
-            (fun symbols moduleName (OidValue(cs)) -> 
+            oidValueComponents
+            (fun symbols moduleName oidComponents -> 
                 { Identifier = moduleName
-                  Oid = Array.ofList(cs)
+                  Oid = Array.ofList(oidComponents)
                   ValueReferences = List.filter (fun r -> System.Char.IsLower r.[0]) symbols
                   TypeReferences = List.filter (fun r -> System.Char.IsUpper r.[0]) symbols } )
     
@@ -293,12 +294,12 @@ let parseModuleImports =
 let moduleDefinitionBegin = 
     pipe4
         moduleReference 
-        (oidValue .>> str_ws "DEFINITIONS")
+        (oidValueComponents .>> str_ws "DEFINITIONS")
         tagDefault
         (extensionDefault .>> str_ws "::=" .>> str_ws "BEGIN" .>>. parseModuleImports)
-        (fun ident (OidValue(cs)) tagDefault (extDefault, imports) ->
+        (fun ident oidComponents tagDefault (extDefault, imports) ->
             { Identifier = ident 
-              Oid = Array.ofList cs
+              Oid = Array.ofList oidComponents
               TagDefault = tagDefault
               ExtensibilityImplied = extDefault
               TypeAssignments = Map.empty

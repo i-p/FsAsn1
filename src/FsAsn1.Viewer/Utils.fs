@@ -73,13 +73,16 @@ let valueStr asnElement =
 
     match asnElement.Value with
     | Integer(v) -> v.ToString() |> Some
-    | ObjectIdentifier(numbers) -> String.Join(".", numbers |> Seq.map(fun n -> n.ToString())) |> Some
+    | ObjectIdentifier(numbers)
+    | RelativeObjectIdentifier(numbers) -> String.Join(".", numbers |> Seq.map(fun n -> n.ToString())) |> Some
     //TODO FIX
-    | OctetString(v) -> sprintf "%x" v.[0] |> Some
-    | PrintableString(v) -> sprintf "\"%s\"" v |> Some
-    | UTF8String(v) -> sprintf "\"%s\"" v |> Some
+    | OctetString(v) -> sprintf "%x" v.[0] |> Some    
     | UTCTime(dto) -> utcTimeToString dto |> Some
-    | T61String(_) -> "" |> Some
+    | PrintableString(v)
+    | UTF8String(v)
+    | T61String(v)
+    | VisibleString(v)
+    | IA5String(v) -> sprintf "\"%s\"" v |> Some
     | Boolean(v) ->
         match v with
         | AsnBoolean.True _ -> "TRUE" |> Some
@@ -96,8 +99,11 @@ let typeStr asnElement =
     | Null -> "NULL"
     | Integer(_) -> "INTEGER"
     | ObjectIdentifier(_) -> "OBJECT_IDENTIFIER"
+    | RelativeObjectIdentifier(_) -> "RELATIVE_OBJECT_IDENTIFIER"
     | OctetString(_) -> "OCTET_STRING"
     | PrintableString(_) -> "PRINTABLE_STRING"
+    | IA5String(_) -> "IA5_STRING"
+    | VisibleString(_) -> "VISIBLE_STRING"
     | UTF8String(_) -> "UTF8_STRING"
     | Sequence(_) -> "SEQUENCE"
     | Set(_) -> "SET"

@@ -15,10 +15,13 @@ let getPrimitiveValue (element: AsnElement) : obj =
     match asnValue with    
     | AsnValue.Integer v -> box v
     | AsnValue.ObjectIdentifier v -> box v
+    | AsnValue.RelativeObjectIdentifier v -> box v
     | AsnValue.OctetString v -> box v
     | AsnValue.PrintableString v -> box v
     | AsnValue.UTF8String v -> box v    
     | AsnValue.T61String v -> box v
+    | AsnValue.IA5String v -> box v
+    | AsnValue.VisibleString v -> box v
     | AsnValue.Unknown v -> box v
     | AsnValue.UTCTime v -> box v    
     | AsnValue.Null -> null    
@@ -63,15 +66,20 @@ let rec toTypeRep ty lookupType =
     | ObjectIdentifierType  -> repBy typeof<bigint[]>
     | OctetStringType       -> repBy typeof<byte[]>
     | IntegerType(_)        -> repBy typeof<bigint>
-    | AnyType(_)                    -> failwith "Not implemented yet"
+    | AnyType(_)                        -> failwith "Not implemented yet"
     | AsnTypeKind.SequenceOfType(_, _)  -> failwith "Not implemented yet"
-    | ChoiceType(_)                 -> failwith "Not implemented yet"
+    | ChoiceType(_)                     -> failwith "Not implemented yet"
+    | AsnTypeKind.SetType(_)            -> failwith "Not implemented yet"
+    | AsnTypeKind.SetOfType(_, _)       -> failwith "Not implemented yet"
     | TaggedType(_, _, Some Implicit, innerTy) ->
         let innerRep = toTypeRep innerTy lookupType
         { innerRep with SchemaType = ty }
     | TaggedType(_, _, Some Explicit, innerTy) ->
         let innerRep = toTypeRep innerTy lookupType
         { innerRep with SchemaType = ty; FromElement = <@ getPrimitiveValue >> %coerceToElement >> %(innerRep.FromElement) @> }
+    | TaggedType(_, _, None, innerTy) ->
+        // TODO use the default TagKind as specified by ModuleDefinition
+        failwith "Not implemented yet"
     | ReferencedType(name) ->
         match lookupType name with
         | Some(ty) ->
