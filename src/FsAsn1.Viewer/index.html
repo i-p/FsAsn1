@@ -75,7 +75,10 @@
             font-family: 'Droid Sans Pro', monospace;
             font-size: 13px;
             background-color: #f8fbff;
-            padding-left: 10px;
+            padding-left: 10px;            
+        }
+
+        #schemas {
             overflow: scroll;
         }
 
@@ -242,7 +245,7 @@
             font-family: 'Open Sans';
             font-size: 14px;
         }
-        button {
+        .schema-button {
             display: block;
             width: 100%;
             height: 30px;
@@ -252,15 +255,15 @@
             z-index: 0;     
             position: relative;
         }
-        button:first-child {            
+        .schema-button:first-child {            
             border-top-left-radius: 5px;
             border-top-right-radius: 5px;            
         }
-        button:last-child {            
+        .schema-button:last-child {            
             border-bottom-left-radius: 5px;
             border-bottom-right-radius: 5px;                        
         }
-        button:hover {
+        .schema-button:hover {
             background-color: rgb(255, 250, 244);
             border-color: orange;
             z-index: 10;
@@ -268,13 +271,35 @@
         #preview-info {
             margin: 15px 0;
         }
+
+        header button {
+            border: 1px solid transparent;
+            border-radius: 3px;
+            background: none;
+        }
+        header button:hover {
+            border: 1px orange solid;
+        }
+        header button svg {
+            fill: white
+        }
+
+        header button:hover svg {
+            fill: orange;
+        }
+
     </style>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Droid+Sans+Mono" rel="stylesheet">
 </head>
 <body>
     <header>
         <h1>ASN.1 Viewer</h1>
-        <span id="file-info"></span>
+        <span id="file-info"></span>        
+        <button id="close-button" class="hidden" title="Close file">
+            <svg height="1em" viewBox="200 100 1492 1592" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1490 1322q0 40-28 68l-136 136q-28 28-68 28t-68-28l-294-294-294 294q-28 28-68 28t-68-28l-136-136q-28-28-28-68t28-68l294-294-294-294q-28-28-28-68t28-68l136-136q28-28 68-28t68 28l294 294 294-294q28-28 68-28t68 28l136 136q28 28 28 68t-28 68l-294 294 294 294q28 28 28 68z"></path>
+            </svg>
+        </button>
     </header>
     <main>
         <div id="intro" class="intro">
@@ -304,6 +329,9 @@
                 <label for="module-selector">ASN.1 Module: </label>
                 <select name="module-selector" id="module-selector">                    
                 </select>
+            </div>
+            <div id="schemas">
+
             </div>
         </div>
     </main>

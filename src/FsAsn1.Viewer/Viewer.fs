@@ -23,13 +23,16 @@ Fable.Import.Node.require.Invoke("core-js") |> ignore
 let byId = document.getElementById
 
 let schemaViewer        = byId "schema-viewer"
+let schemasEl           = byId "schemas"
 let hexViewer           = byId "hex-viewer"
 let hexViewerBytes      = byId "bytes"
+let hexViewerOffsets    = byId "hex-offsets"
 let viewer              = byId "viewer"
 let moduleSelector      = byId "module-selector" :?> HTMLSelectElement
 let offsetsEl           = byId "hex-offsets"
 let schemaSelectorEl    = byId "schema-selector"
 let fileInfoEl          = byId "file-info"
+let closeButtonEl       = byId "close-button"
 let introEl             = byId "intro"
 let previewInfoEl       = byId "preview-info"
 let dropbox             = byId "dropbox"
@@ -67,6 +70,15 @@ let hideIntro () =
     removeClass "hidden" schemaViewer
     removeClass "hidden" hexViewer
 
+let showIntro () =
+    removeClass "hidden" introEl
+
+    addClass "hidden" viewer
+    addClass "hidden" schemaViewer
+    addClass "hidden" hexViewer
+
+    addClass "hidden" previewInfoEl
+    addClass "hidden" schemaSelectorEl
 
 let fetchSchema info =
     async {
@@ -122,13 +134,16 @@ let loadFile path ty (byteData: byte[]) =
         schemaData 
         |> Array.iter (fun ls ->
             appendTo moduleSelector ls.OptionElement
-            appendTo schemaViewer ls.SchemaElement)
+            appendTo schemasEl ls.SchemaElement)
             
         updateSchema()
 
         let modules = schemaData |> List.ofArray |> List.map (fun ls -> ls.ModuleDefinition)
 
         fileInfoEl.textContent <- sprintf "%s (%.2f KB)" path (float byteData.Length / 1024.0)
+
+        removeClass "hidden" fileInfoEl
+        removeClass "hidden" closeButtonEl
 
         try
             read byteData modules ty.TypeName                
@@ -221,7 +236,7 @@ module State =
                 let schemaId = el.parentElement.getAttribute("data-schema-id")
                 moduleSelector.value <- schemaId
                 updateSchema()
-                sync el schemaViewer
+                sync el schemasEl
             | None -> ()
                                     
         if isHexElement el then            
@@ -230,7 +245,7 @@ module State =
             sync set.Structure viewer
 
             match set.Schema with
-            | Some(_, el) -> sync el schemaViewer
+            | Some(_, el) -> sync el schemasEl
             | None -> ()
 
     let hover, select =
@@ -321,3 +336,19 @@ knownTypes
        
 if location.hash.StartsWith("#example=") then
     location.hash.Substring("#example=".Length) |> loadExampleFile
+
+
+closeButtonEl.addEventListener_click(fun e ->
+    showIntro()
+    moduleSelector.innerHTML <- ""
+    viewer.innerHTML <- ""    
+    hexViewerOffsets.innerHTML <- ""
+    hexViewerBytes.innerHTML <- ""
+    schemasEl.innerHTML <- ""
+    
+    addClass "hidden" fileInfoEl
+    addClass "hidden" closeButtonEl
+
+    location.hash <- ""
+
+    box())

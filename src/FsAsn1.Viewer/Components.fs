@@ -206,5 +206,6 @@ let exampleFile f =
 let knownTypeButton index kt =
     let btnEl = document.createElement_button()
     btnEl.textContent <- kt.DisplayName    
+    btnEl.classList.add("schema-button")
     btnEl.setAttribute("data-known-type", string index)
     btnEl
