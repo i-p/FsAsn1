@@ -63,12 +63,21 @@ let valueStr asnElement =
     let utcTimeToString (dto: DateTimeOffset) =
         sprintf "%02d.%02d.%d %02d:%02d" dto.DateTime.Day dto.DateTime.Month dto.DateTime.Year dto.DateTime.Hour dto.DateTime.Minute        
 
+    let visibleOctetStringBytes = 10
+
     match asnElement.Value with
     | Integer(v) -> v.ToString() |> Some
     | ObjectIdentifier(numbers)
-    | RelativeObjectIdentifier(numbers) -> String.Join(".", numbers |> Seq.map(fun n -> n.ToString())) |> Some
-    //TODO FIX
-    | OctetString(v) -> sprintf "%x" v.[0] |> Some    
+    | RelativeObjectIdentifier(numbers) -> String.Join(".", numbers |> Seq.map(fun n -> n.ToString())) |> Some    
+    | OctetString(v) ->
+        let addSuffix s = if v.Length > visibleOctetStringBytes then s + "..." else s
+        
+        v
+        |> Array.take visibleOctetStringBytes
+        |> Array.map (sprintf "%02x")
+        |> String.concat ""
+        |> addSuffix
+        |> Some
     | UTCTime(dto) -> utcTimeToString dto |> Some
     | PrintableString(v)
     | UTF8String(v)
