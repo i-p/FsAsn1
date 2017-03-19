@@ -142,13 +142,13 @@ Target "WebServer" (fun _ ->
 
     let mimeTypes =
         Writers.defaultMimeTypesMap
-        @@ (function | ".cer" -> Writers.mkMimeType "application/octet-stream" false | _ -> None)
+        @@ (function | ".cer" -> Writers.createMimeType "application/octet-stream" false | _ -> None)
 
     startWebServer { 
         defaultConfig with 
             homeFolder = Some homeDir
             mimeTypesMap = mimeTypes
-            logger = Suave.Logging.Loggers.ConsoleWindowLogger(Logging.LogLevel.Debug)
+            logger = Suave.Logging.Targets.create Logging.LogLevel.Debug [||]
         } app    
 )
 

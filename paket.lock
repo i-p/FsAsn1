@@ -1,14 +1,73 @@
 FRAMEWORK: >= NET452
 NUGET
-  remote: http://api.nuget.org/v3/index.json
-    FAKE (4.36)
+  remote: https://api.nuget.org/v3/index.json
+    FAKE (4.56)
     FParsec-Big-Data-Edition (1.0.2)
-    FSharp.Core (4.0.0.1) - redirects: force
+    FSharp.Core (4.1.0.2) - redirects: force
+      System.ValueTuple (>= 4.3)
     FSharp.TypeProviders.StarterPack (1.1.3.88)
-    FsUnit (2.3.1)
+    FsUnit (3.0)
       FSharp.Core (>= 3.1.2.5)
-      NUnit (3.4.1)
-    NUnit (3.4.1)
-    NUnit.ConsoleRunner (3.4.1)
-    Suave (1.1.3)
-      FSharp.Core (>= 3.1.2.5)
+      NUnit (>= 3.6)
+    Microsoft.Win32.Primitives (4.3) - framework: >= net463
+    NETStandard.Library (1.6.1) - framework: >= net463
+      Microsoft.Win32.Primitives (>= 4.3) - framework: >= net46
+      System.AppContext (>= 4.3) - framework: >= net46
+      System.Collections.Concurrent (>= 4.3)
+      System.Console (>= 4.3) - framework: >= net46
+      System.Diagnostics.Tracing (>= 4.3)
+      System.Globalization.Calendars (>= 4.3) - framework: >= net46
+      System.IO.Compression (>= 4.3)
+      System.IO.Compression.ZipFile (>= 4.3) - framework: >= net46
+      System.IO.FileSystem (>= 4.3) - framework: >= net46
+      System.IO.FileSystem.Primitives (>= 4.3) - framework: >= net46
+      System.Net.Http (>= 4.3)
+      System.Net.Sockets (>= 4.3) - framework: >= net46
+      System.Runtime.Handles (>= 4.3) - framework: >= net46
+      System.Runtime.InteropServices (>= 4.3)
+      System.Runtime.InteropServices.RuntimeInformation (>= 4.3)
+      System.Runtime.Numerics (>= 4.3)
+      System.Security.Cryptography.Algorithms (>= 4.3) - framework: >= net46
+      System.Security.Cryptography.Encoding (>= 4.3) - framework: >= net46
+      System.Security.Cryptography.Primitives (>= 4.3) - framework: >= net46
+      System.Security.Cryptography.X509Certificates (>= 4.3) - framework: >= net46
+      System.Threading.Timer (>= 4.3)
+    NUnit (3.6.1)
+      NETStandard.Library (>= 1.6) - framework: >= net463
+      System.Runtime.Loader (>= 4.0) - framework: >= net463
+    NUnit.ConsoleRunner (3.6.1)
+    Suave (2.0.4)
+      FSharp.Core (>= 4.0.0.1)
+    System.AppContext (4.3) - framework: >= net463
+    System.Collections.Concurrent (4.3) - framework: >= net463
+    System.Console (4.3) - framework: >= net463
+    System.Diagnostics.Tracing (4.3) - framework: >= net463
+    System.Globalization.Calendars (4.3) - framework: >= net463
+    System.IO (4.3) - framework: >= net463
+    System.IO.Compression (4.3) - framework: >= net463
+    System.IO.Compression.ZipFile (4.3) - framework: >= net463
+    System.IO.FileSystem (4.3) - framework: >= net463
+      System.IO.FileSystem.Primitives (>= 4.3) - framework: >= net46
+    System.IO.FileSystem.Primitives (4.3)
+    System.Net.Http (4.3.1) - framework: >= net463
+      System.Security.Cryptography.X509Certificates (>= 4.3) - framework: >= net46
+    System.Net.Sockets (4.3) - framework: >= net463
+    System.Runtime (4.3)
+    System.Runtime.Handles (4.3) - framework: >= net463
+    System.Runtime.InteropServices (4.3) - framework: >= net463
+      System.Runtime (>= 4.3) - framework: >= net462
+    System.Runtime.InteropServices.RuntimeInformation (4.3) - framework: >= net463
+    System.Runtime.Loader (4.3) - framework: >= net463
+    System.Runtime.Numerics (4.3) - framework: >= net463
+    System.Security.Cryptography.Algorithms (4.3)
+      System.IO (>= 4.3) - framework: >= net463
+      System.Runtime (>= 4.3) - framework: >= net463
+      System.Security.Cryptography.Encoding (>= 4.3) - framework: >= net463
+      System.Security.Cryptography.Primitives (>= 4.3) - framework: net46, net461, >= net463
+    System.Security.Cryptography.Encoding (4.3)
+    System.Security.Cryptography.Primitives (4.3)
+    System.Security.Cryptography.X509Certificates (4.3)
+      System.Security.Cryptography.Algorithms (>= 4.3) - framework: >= net46
+      System.Security.Cryptography.Encoding (>= 4.3) - framework: >= net46
+    System.Threading.Timer (4.3) - framework: >= net463
+    System.ValueTuple (4.3) - redirects: force

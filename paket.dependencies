@@ -2,7 +2,7 @@ source https://api.nuget.org/v3/index.json
 framework >= net452
 
 nuget FAKE
-nuget FParsec-Big-Data-Edition 1.0.2
+nuget FParsec-Big-Data-Edition
 nuget FSharp.Core redirects: force
 nuget FSharp.TypeProviders.StarterPack
 nuget FsUnit
