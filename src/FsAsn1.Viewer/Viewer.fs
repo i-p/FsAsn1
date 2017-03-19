@@ -25,6 +25,7 @@ let byId = document.getElementById
 let schemaViewer        = byId "schema-viewer"
 let schemasEl           = byId "schemas"
 let hexViewer           = byId "hex-viewer"
+let hexBytes            = byId "hex-bytes"
 let hexViewerBytes      = byId "bytes"
 let hexViewerOffsets    = byId "hex-offsets"
 let viewer              = byId "viewer"
@@ -229,7 +230,7 @@ module State =
         if isStructureElement el then        
             let sync = syncScroll set.Structure viewer
                
-            sync set.Hex hexViewer
+            sync set.Hex hexBytes
 
             match set.Schema with
             | Some(_, el) ->
@@ -240,7 +241,7 @@ module State =
             | None -> ()
                                     
         if isHexElement el then            
-            let sync = syncScroll set.Hex hexViewer
+            let sync = syncScroll set.Hex hexBytes
                
             sync set.Structure viewer
 

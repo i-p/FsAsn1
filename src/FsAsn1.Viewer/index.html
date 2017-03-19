@@ -1,12 +1,13 @@
 ﻿<!doctype html>
 <html>
-<head>  
+<head>
+    <title>ASN.1 Viewer</title>  
     <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
     <style>
         h1 {
             font-family: 'Open Sans', sans-serif;
-            font-size: 18px;
-            margin: 0;
+            font-size: 18px;            
+            margin: 0 0 0 5px;
         }
         html { height: 100%; }
 
@@ -45,7 +46,8 @@
 
         .viewer {            
             flex: 1 1 30%;
-            overflow-y: scroll;            
+            overflow-y: scroll;
+            cursor: default;            
         }
 
         .schema-viewer {            
@@ -55,11 +57,19 @@
             flex-direction: column;
         }
 
-        .hex-viewer {            
-            overflow-y: scroll;
+        .hex-viewer {                        
             background-color: #f8fbff;
         }
 
+        #hex-bytes {
+            overflow-y: scroll;
+            display: flex;
+        }
+        #hex-header {
+            display: flex;    
+            flex-direction: row;
+            flex: 0 0 auto;
+        }
         .hex-viewer {
             font-family: 'Droid Sans Mono', monospace;
             font-size: 12px;
@@ -68,6 +78,8 @@
             width: 420px;
             min-width: 420px;
             display: flex;
+            cursor: default;
+            flex-direction: column;
         }
 
         .schema-viewer .schema {
@@ -82,6 +94,33 @@
             overflow: scroll;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
+        #hex-offsets > div {
+            background-color: #e2ecfa;
+            padding-left: 5px;
+        }
+
+        #hex-offsets {
+            width: 55px;            
+        }
+
+        #hex-header div:first-child {
+            width: 55px;
+            padding-left: 5px;
+            background-color: #e2ecfa;
+        }
+
+        #hex-header div:last-child {
+            width: 340px;
+            background-color: #e2ecfa;
+        }
+
+        #bytes {
+            width: 340px;
+        }
         .schema-viewer .hover {
             outline: 3px solid #ffd3a0;
             background-color: #ffedd8;
@@ -317,12 +356,16 @@
         </div>
         <div id="viewer" class="viewer hidden">
         </div>
-        <div id="hex-viewer" class="hex-viewer hidden" style="flex-flow: row wrap;">
-            <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;">Offset</div>
-            <div style="width: 340px; background-color: #e2ecfa;">00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F</div>
-            <div style="width: 55px; padding-left: 5px; background-color: #e2ecfa;" id="hex-offsets">
+        <div id="hex-viewer" class="hex-viewer hidden">
+            <div id="hex-header">
+                <div>Offset</div>
+                <div>00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F</div>
             </div>
-            <div id="bytes" style="width: 340px;"></div>
+            <div id="hex-bytes">
+                <div id="hex-offsets">
+                </div>
+                <div id="bytes"></div>
+            </div>
         </div>
         <div id="schema-viewer" class="schema-viewer hidden">
             <div id="module-section">                
