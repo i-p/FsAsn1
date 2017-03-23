@@ -5,7 +5,7 @@ var nodeExternals = require('webpack-node-externals');
 var cfg = {
   devtool: "source-map",
   target: "node",
-  entry: ["./ParserTests.js",  "./FParsecTests.js"],  
+  entry: ["./ParserTests.js", "./FParsecTests.js", "./ReaderTests.js"],
   output: {
     path: __dirname, //path.join(__dirname, "public"),
     filename: "tests.bundle.js"
