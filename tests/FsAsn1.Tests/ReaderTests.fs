@@ -274,7 +274,7 @@ let ``read SSL certificate``() =
     
     let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), [md.Value])
     
-    let element = readElement ctx (md.Value.TryFindType("Certificate"))
+    let Some element, None = readElement ctx (md.Value.TryFindType("Certificate"))
         
     CollectionAssert.IsEmpty(unknownElements element)    
     CollectionAssert.IsEmpty(elementsWithoutSchemaType element)
@@ -335,7 +335,7 @@ let ``read PSSSignDataSHA1.sig``() =
     let content = System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + @"\Data\BouncyCastle\cms\sigs\PSSSignDataSHA1.sig")
     let ctx = AsnContext(AsnArrayStream(content, 0), [md.Value; md2.Value])
     
-    let element = readElement ctx (md.Value.TryFindType "ContentInfo") 
+    let Some element, None = readElement ctx (md.Value.TryFindType "ContentInfo") 
     
     CollectionAssert.IsEmpty(unknownElements element)    
     CollectionAssert.IsEmpty(elementsWithoutSchemaType element)    
@@ -432,3 +432,141 @@ let ``toExpectedTag can return every value of UniversalTag enumeration`` () =
         | None ->
             Assert.Fail(sprintf "Missing example mapping for universal tag %A" expected)
 #endif
+
+let validOctetString = "04 02 30 00 "
+let validOctetStringHeader = 
+    { AsnHeader.Class = AsnClass.Universal; 
+      Encoding = Primitive; 
+      Tag = int UniversalTag.OctetString; 
+      Length = Definite(2,1) }
+
+// WORKAROUND equal cannot be used everywhere because structural comparison 
+// of exceptions doesn't work in Fable  
+
+[<Test>]
+let ``read primitive value - not long enough``() =     
+    let el, errEl, _ = read validOctetString.[0..8]
+          
+    match el, errEl with
+    | None, (Some(
+                InvalidValue(h, 
+                   { Exception = Some(EndOfAsnStreamException); 
+                     ChildrenErrors = [] }))) when h = validOctetStringHeader -> ()
+    | _ -> failwithf "Unexpected result: %A %A" el errEl 
+                                     
+[<Test>]
+let ``read primitive value - remaining byte``() = 
+    validOctetString + "00 " |> shouldReadAs (&OctetString [|0x30uy; 0x00uy|])
+    //TODO verify ctx remaining bytes
+
+[<Test>]
+let ``read from empty stream``() =
+    let el, errEl, _ = read ""
+
+    equal None el
+    equal (Some(AsnErrorElement.NoData(0))) errEl
+        
+[<Test>]
+let ``read incomplete header``() =
+    let el, errEl, _ = read "04 "
+
+    equal None el
+    equal (Some(AsnErrorElement.InvalidHeader(0))) errEl    
+    
+let exampleSchema = parseTypes "T ::= SEQUENCE {name IA5String, ok BOOLEAN}"
+let exampleSequence = "30 0A | 16 05 536D697468 | 01 01 FF"
+
+let sequenceHeader = makeHeader(AsnClass.Universal, Constructed, int UniversalTag.Sequence, Definite(10, 1))
+let firstSequenceComponent = 
+    { Header = makeHeader(AsnClass.Universal, Primitive, int UniversalTag.IA5String, Definite(5, 1))
+      Value = AsnValue.IA5String("Smith")
+      Offset = 2
+      SchemaType = None } 
+let secondSequenceComponent = 
+    { Header = makeHeader(AsnClass.Universal, Primitive, int UniversalTag.Boolean, Definite(1, 1))
+      Value = AsnValue.Boolean(AsnBoolean.True(255uy))
+      Offset = 9                            
+      SchemaType = None }
+
+[<Test>]
+let ``missing sequence component``() =    
+    let el, errEl, _ = read "30 0A | 16 05 536D697468"
+    
+    equal (Some {
+            Header = sequenceHeader
+            Value = AsnValue.Sequence [| firstSequenceComponent |]
+            Offset = 0
+            SchemaType = None
+        }) el
+        
+    equal 
+        (Some(InvalidValue(sequenceHeader, 
+                { Exception = None; 
+                  ChildrenErrors = [ NoData(9) ]}))) errEl
+
+[<Test>]
+let ``following elements of sequence are read even if there is a previous element with an invalid value``() =    
+    let el, errEl, _ = read "30 0A | 01 05 536D697468 | 01 01 FF"
+    let firstSequenceComponent' = { firstSequenceComponent.Header with Tag = int UniversalTag.Boolean }
+
+    equal (Some {
+            Header = sequenceHeader
+            Value = AsnValue.Sequence 
+                        [| 
+                            secondSequenceComponent
+                        |]
+            Offset = 0
+            SchemaType = None
+        }) el
+
+    match errEl with
+    | Some(InvalidValue(h, 
+            { Exception = None; 
+              ChildrenErrors = [ InvalidValue(h2, 
+                                    { Exception = Some(AsnElementException("Invalid length of boolean value.")); 
+                                      ChildrenErrors = []}) ]})) 
+        when h = sequenceHeader && h2 = firstSequenceComponent' -> ()
+    | _ -> failwithf "Unexpected result: %A" errEl
+
+[<Test>]
+let ``incomplete value of last sequence component``() =    
+    let el, errEl, _ = read "30 09 | 16 05 536D697468 | 01 01 "
+    
+    let sequenceHeader' = { sequenceHeader with Length = Definite(9, 1) }
+
+    equal (Some {
+            Header = sequenceHeader'
+            Value = AsnValue.Sequence [| firstSequenceComponent |]
+            Offset = 0
+            SchemaType = None
+        }) el
+    
+    match errEl with
+    | Some(InvalidValue(h, 
+            { Exception = None; 
+              ChildrenErrors = [ InvalidValue(h2, 
+                                    { Exception = Some(EndOfAsnStreamException); 
+                                      ChildrenErrors = []}) ]})) 
+        when h = sequenceHeader' && h2 = secondSequenceComponent.Header -> ()
+    | _ -> failwithf "Unexpected result: %A" errEl
+
+
+[<Test>]
+let ``incomplete header of last sequence component``() =    
+    let el, errEl, _ = read "30 08 | 16 05 536D697468 | 01 "
+    
+    let sequenceHeader' = { sequenceHeader with Length = Definite(8, 1) }
+
+    equal (Some {
+            Header = sequenceHeader'
+            Value = AsnValue.Sequence [| firstSequenceComponent |]
+            Offset = 0
+            SchemaType = None
+        }) el
+    
+    equal 
+        (Some(InvalidValue(sequenceHeader', 
+                { Exception = None; 
+                  ChildrenErrors = [InvalidHeader(9)] }))) errEl
+
+// TODO tests for incomplete long tag, complete tag missing length, incomplete length

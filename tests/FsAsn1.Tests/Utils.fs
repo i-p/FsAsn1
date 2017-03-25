@@ -57,7 +57,8 @@ let toIndexLineColumn (p: Position) =
 let private hexStringToBytes (str: string) =    
     str
     |> Seq.filter (fun c -> c <> ' ' && c <> '|' && c <> '\n' && c <> '\r')
-    |> Seq.chunkBySize 2
+    |> Seq.toList    
+    |> Seq.unfold (fun str -> match str with | [] -> None | c1 :: c2 :: rest -> Some([|c1;c2|], rest))
     |> Seq.map (fun chars -> Convert.ToByte(String(chars), 16))
     |> Seq.toArray
     
@@ -115,15 +116,30 @@ let shouldReadAs expected hexString =
     let stream = hexString |> hexStringStream
     let ctx = AsnContext(stream, [])
     let actual =
-        let el = readElement ctx None
-        if isDummy expected then convertToDummy el else el
-
+        match readElement ctx None with
+        | Some(el), None ->
+            if isDummy expected then convertToDummy el else el
+        | el, errEl ->
+            failwithf "Unexpected element %A or error element %A" el errEl
+        
     equal expected actual
+    
+let read (hexString) : (AsnElement option * AsnErrorElement option * AsnContext) =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, [])        
+    let el, err = readElement ctx None    
+    el, err, ctx        
+    
+let readAsType typeName (hexString, moduleDefinition) : (AsnElement option * AsnErrorElement option * AsnContext) =
+    let stream = hexString |> hexStringStream
+    let ctx = AsnContext(stream, [moduleDefinition])        
+    let el, err = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)    
+    el, err, ctx
 
 let shouldReadAsType typeName expected (hexString, moduleDefinition: FsAsn1.Schema.ModuleDefinition) =
     let stream = hexString |> hexStringStream
     let ctx = AsnContext(stream, [moduleDefinition])
-    let el = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)
+    let Some(el), None = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)
     let actual =
         if isDummy expected then convertToDummy el else el
 

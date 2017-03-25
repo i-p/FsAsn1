@@ -11,7 +11,10 @@ type IAsnStream =
     abstract member ReadByte: unit -> byte
     abstract member ReadBytes: int -> byte[]
     abstract member Position: int with get
-    
+
+exception EndOfAsnStreamException
+exception AsnElementException of string
+
 type AsnArrayStream(arr: byte[], pos: int) =    
     let mutable position = pos
 
@@ -23,7 +26,7 @@ type AsnArrayStream(arr: byte[], pos: int) =
 
         member __.ReadByte() = 
             if position + 1 > arr.Length then
-                raise (EndOfStreamException())
+                raise (EndOfAsnStreamException)
             else
                 let b = arr.[position]
                 position <- position + 1
@@ -31,22 +34,32 @@ type AsnArrayStream(arr: byte[], pos: int) =
 
         member __.ReadBytes(len) = 
             if position + len > arr.Length then
-                raise (EndOfStreamException())
+                raise (EndOfAsnStreamException)
             else                
                 let bs = arr.[position..position + len - 1]
                 position <- position + len
                 bs
 
-type AsnBoundedStream(stream: IAsnStream, limit: int32) =        
+type AsnBoundedStream(stream: IAsnStream, limit: int32) as this =        
+
+    member private this.CanRead(len) = stream.Position + len <= limit
+
     interface IAsnStream with
         member __.CanRead(len) =
-            stream.Position + len <= limit
-
-        member __.ReadBytes(len) =            
-            stream.ReadBytes(len)        
+            this.CanRead(len)
+            
+        member __.ReadBytes(len) =
+            if this.CanRead(len) then
+                stream.ReadBytes(len)        
+            else
+                raise (EndOfAsnStreamException)
 
         member __.ReadByte() =            
-            stream.ReadByte()
+            if this.CanRead(1) then
+                stream.ReadByte()
+            else
+                raise (EndOfAsnStreamException)
+
         member __.Position with get() = stream.Position
 
 let createBoundedStream stream (expectedBytes: int32): IAsnStream =    
@@ -359,21 +372,46 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previo
         | ChoiceComponentTag(_cs) -> 
             failwith "Not implemented yet"
         
-and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
+and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] * AsnErrorElement list =
     let stream = ctx.Stream
 
+    //TODO refactor
     let readElements tryFindType initialState =
-        let rec recurse acc state = 
+        let rec recurse acc errAcc state = 
             if stream.CanRead(1) then                            
                 let position = stream.Position
-                let header = readHeader stream
-                let ty, newState = tryFindType header state acc                
-                let v = readValue ctx header ty
-                let el = makeElement(header, v, position, ty)
-                recurse (el :: acc) newState
+                
+                try
+                    let header = readHeader stream
+                    let ty, newState = tryFindType header state acc                
+                    let v, err = readValue ctx header ty
+
+                    let newErr = 
+                        match err with
+                        | Some(e) -> AsnErrorElement.InvalidValue(header, e) :: errAcc
+                        | None -> errAcc
+
+                    match v with
+                    | Some(vv) ->
+                        let el = makeElement(header, vv, position, ty)
+                        recurse (el :: acc) (newErr) newState
+                    | None ->                    
+                        // invalid value should not prevent reading of following elements
+                        recurse acc newErr newState                        
+                with
+                | e ->
+                    let err = 
+                        if stream.Position = position then
+                            NoData(position)
+                        else
+                            InvalidHeader(position)
+                    
+                    acc |> List.toArray |> Array.rev,
+                    (err :: errAcc) |> List.rev
             else
-                acc |> List.toArray |> Array.rev
-        recurse [] initialState
+                acc |> List.toArray |> Array.rev,
+                errAcc |> List.rev
+        recurse [] [] initialState
             
     let readElementsNoState tryFindType =
         readElements (fun h _ _ ->  tryFindType h, ()) ()
@@ -424,51 +462,63 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] =
     | _ ->        
         failwithf "Unexpected collection type %A" ty
            
-and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValue =
+and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValueResult =
     let stream = ctx.Stream
     match (LanguagePrimitives.EnumOfValue tag) with
     | UniversalTag.Sequence ->                
-        readCollection ctx ty |> Sequence
+        let res, errs = readCollection ctx ty
+        
+        res |> Sequence |> Some, 
+        match errs with
+        | [] -> None
+        | _ -> { AsnErrorValue.Exception = None; ChildrenErrors = errs } |> Some
     | UniversalTag.Set->                
         //TODO based on ty, create either Set or SetOf
-        readCollection ctx ty |> Set
+        let res, errs = readCollection ctx ty
+        
+        res |> Set |> Some, 
+        match errs with
+        | [] -> None
+        | _ -> { AsnErrorValue.Exception = None; ChildrenErrors = errs } |> Some
+
     | UniversalTag.Integer ->                
-        stream.ReadBytes(len) |> decodeInteger |> Integer
+        stream.ReadBytes(len) |> decodeInteger |> Integer |> Some, None
     | UniversalTag.ObjectIdentifier ->                
-        readOid stream len |> ObjectIdentifier
+        readOid stream len |> ObjectIdentifier |> Some, None
     | UniversalTag.RelativeObjectIdentifier ->
-        readRelativeOid stream len |> RelativeObjectIdentifier
+        readRelativeOid stream len |> RelativeObjectIdentifier |> Some, None
     | UniversalTag.Null ->
-        Null
+        Null |> Some, None
     | UniversalTag.PrintableString ->
         let str = stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString
         if (isValidPrintableString str) then
-            PrintableString str
+            PrintableString str |> Some, None
         else
             failwith "Invalid printable string"
     | UniversalTag.UTF8String ->
-        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String |> Some, None
     | UniversalTag.VisibleString ->  //TODO this is not correct (https://www.itscj.ipsj.or.jp/iso-ir/006.pdf)
-        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> VisibleString
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> VisibleString |> Some, None
     | UniversalTag.IA5String ->  //TODO check charset
-        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> IA5String
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> IA5String |> Some, None
     | UniversalTag.UTCTime ->
-        stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime
+        stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime |> Some, None
     | UniversalTag.BitString ->
         let numberOfUnusedBits = stream.ReadByte()            
         let bytes = stream.ReadBytes(len - 1)
-        BitString { NumberOfUnusedBits = numberOfUnusedBits; Data = bytes }
+        BitString { NumberOfUnusedBits = numberOfUnusedBits; Data = bytes } |> Some, None
     | UniversalTag.OctetString ->
-        stream.ReadBytes(len) |> OctetString
+        stream.ReadBytes(len) |> OctetString |> Some, None
     | UniversalTag.Boolean ->
+        if len <> 1 then raise (AsnElementException("Invalid length of boolean value."))
         match stream.ReadByte() with
-        | 0uy -> Boolean(AsnBoolean.False)
-        | v -> Boolean(AsnBoolean.True(v))                
+        | 0uy -> Boolean(AsnBoolean.False) |> Some, None
+        | v -> Boolean(AsnBoolean.True(v)) |> Some, None  
     | _ ->
         printfn "Unsupported universal class tag '%d'" tag
-        stream.ReadBytes(len) |> Unknown
+        stream.ReadBytes(len) |> Unknown |> Some, None
 
-and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =    
+and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueResult =    
     let (tagNumber, length) = h.Tag, h.Length
     
 
@@ -484,9 +534,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =
         | AnyTag -> false
         | ChoiceComponentTag(_) -> false        
 
-    match length with
-    | Definite(len, _) ->
-        // TODO create separate function
+    let readValueOfDefiniteLength len =
         let ctx = ctx.WithBoundedStream(len)
         let stream = ctx.Stream
 
@@ -495,13 +543,13 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =
         let expectedTag = 
             (ty |> Option.map (fun ty -> ty.Kind) |> Option.map (toExpectedTag ctx))
 
-        let readAsUnknownType () = stream.ReadBytes(len) |> Unknown
+        let readAsUnknownType () = stream.ReadBytes(len) |> Unknown |> Some, None
         let readWithNoType () =
             match h.Class with
             | AsnClass.Universal ->
                 readValueUniversal ctx tagNumber len None
             | _ ->
-                stream.ReadBytes(len) |> Unknown
+                stream.ReadBytes(len) |> Unknown |> Some, None
 
         match (expectedTag |> Option.map failsToMatchHeader) with
         | Some(true) ->
@@ -514,7 +562,14 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =
         | Some(UniversalTag(_, _)) ->             
             readValueUniversal ctx tagNumber len ty                            
         | Some(ExplicitlyTaggedType(_, _, taggedTy)) ->            
-            readElement ctx (Some taggedTy) |> AsnValue.ExplicitTag            
+            let res, err = readElement ctx (Some taggedTy)
+
+            res |> Option.map AsnValue.ExplicitTag, 
+            match err with
+            | Some(e) ->
+                { AsnErrorValue.Exception = None; ChildrenErrors = [e] } |> Some
+            | None -> None            
+
         | Some(ImplicitlyTaggedType(_, _, taggedTy)) ->            
             match toExpectedTag ctx taggedTy.Kind with
             | UniversalTag(cls, tag) 
@@ -548,13 +603,46 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option) =
                 //failwithf "Cannot find matching CHOICE component"            
         | None ->
             readWithNoType()
+
+
+    let tryMoveTo pos =
+        try
+            ctx.Stream.ReadBytes(pos - ctx.Stream.Position) |> ignore
+        with
+        | :? EndOfAsnStreamException -> ()
+        | _ -> reraise()
+        
+    match length with
+    | Definite(len, _) ->        
+        let position = ctx.Stream.Position
+        try
+            let res = readValueOfDefiniteLength len
+            tryMoveTo (len + position)            
+            res
+        with        
+        | e ->  
+            tryMoveTo (len + position)
+            None, { AsnErrorValue.Exception = Some(e); ChildrenErrors = [] } |> Some
+
     | Indefinite -> failwith "Not supported yet"    
-and readElement (ctx: AsnContext) (ty: AsnType option)  =
+and readElement (ctx: AsnContext) (ty: AsnType option): AsnResult =
     let stream = ctx.Stream
     let position = stream.Position
-    let header = readHeader stream    
-    let v = readValue ctx header ty
-    makeElement(header, v, position, ty)
+    try
+        let header = readHeader stream    
+        let v, err = readValue ctx header ty     
+        
+        let newErr = Option.map (fun e -> InvalidValue(header, e)) err
+        let newV = Option.map (fun v -> makeElement(header, v, position, ty)) v
+                   
+        newV, newErr        
+    with
+    | e ->
+        printfn "%A" e
+        if position = stream.Position then
+            None, Some(AsnErrorElement.NoData(position))
+        else
+            None, Some(AsnErrorElement.InvalidHeader(position))
 
 
 //TODO rename TypeName to AssignedName

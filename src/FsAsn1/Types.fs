@@ -109,6 +109,22 @@ and AsnValue =
     | ExplicitTag of AsnElement
     | Boolean of AsnBoolean
 
+    
+type AsnErrorElement =
+| NoData of offset: int32
+// Cannot read whole header
+// Header has invalid structure
+| InvalidHeader of offset: int32
+// Cannot correctly read value that follows given header
+| InvalidValue of header: AsnHeader * AsnErrorValue
+and AsnErrorValue = 
+    { Exception: Exception option; 
+      ChildrenErrors: AsnErrorElement list }
+
+type AsnResult = AsnElement option * AsnErrorElement option
+type AsnValueResult = AsnValue option * AsnErrorValue option
+
+
 let makeElement(header, value, offset, schemaType) =
     { Header = header; Value = value; Offset = offset; SchemaType = schemaType }
      
