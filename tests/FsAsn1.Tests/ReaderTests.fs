@@ -293,7 +293,7 @@ let elementsWithMissingComponentName (element: AsnElement) =
             | { SchemaType = Some { Kind = FsAsn1.Schema.SequenceType(_) }} :: _
             | { SchemaType = Some { Kind = FsAsn1.Schema.SetType(_) }} :: _
             | { SchemaType = Some { Kind = FsAsn1.Schema.ChoiceType(_) }} :: _ ->                                 
-                match componentName el with
+                match componentName el.SchemaType with
                 | None ->                            
                     el :: childrenResults
                 | Some(_) -> childrenResults
@@ -320,7 +320,7 @@ let shouldHaveType expected (element, _) =
     equal (Some expected) actual
         
 let shouldHaveComponentName expected (element, _) =
-    let actual = componentName element
+    let actual = componentName element.SchemaType
     equal (Some expected) actual
 
 #if !FABLE
@@ -449,7 +449,7 @@ let ``read primitive value - not long enough``() =
           
     match el, errEl with
     | None, (Some(
-                InvalidValue(h, 
+                InvalidValue(0, 1, h, None,
                    { Exception = Some(EndOfAsnStreamException); 
                      ChildrenErrors = [] }))) when h = validOctetStringHeader -> ()
     | _ -> failwithf "Unexpected result: %A %A" el errEl 
@@ -500,7 +500,7 @@ let ``missing sequence component``() =
         }) el
         
     equal 
-        (Some(InvalidValue(sequenceHeader, 
+        (Some(InvalidValue(0, 7, sequenceHeader, None,
                 { Exception = None; 
                   ChildrenErrors = [ NoData(9) ]}))) errEl
 
@@ -520,9 +520,9 @@ let ``following elements of sequence are read even if there is a previous elemen
         }) el
 
     match errEl with
-    | Some(InvalidValue(h, 
+    | Some(InvalidValue(0, 10, h, None,
             { Exception = None; 
-              ChildrenErrors = [ InvalidValue(h2, 
+              ChildrenErrors = [ InvalidValue(2, 7, h2, None,
                                     { Exception = Some(AsnElementException("Invalid length of boolean value.")); 
                                       ChildrenErrors = []}) ]})) 
         when h = sequenceHeader && h2 = firstSequenceComponent' -> ()
@@ -542,9 +542,9 @@ let ``incomplete value of last sequence component``() =
         }) el
     
     match errEl with
-    | Some(InvalidValue(h, 
+    | Some(InvalidValue(0, 9, h, None,
             { Exception = None; 
-              ChildrenErrors = [ InvalidValue(h2, 
+              ChildrenErrors = [ InvalidValue(9, 2, h2, None,
                                     { Exception = Some(EndOfAsnStreamException); 
                                       ChildrenErrors = []}) ]})) 
         when h = sequenceHeader' && h2 = secondSequenceComponent.Header -> ()
@@ -565,7 +565,7 @@ let ``incomplete header of last sequence component``() =
         }) el
     
     equal 
-        (Some(InvalidValue(sequenceHeader', 
+        (Some(InvalidValue(0, 8, sequenceHeader', None,
                 { Exception = None; 
                   ChildrenErrors = [InvalidHeader(9)] }))) errEl
 

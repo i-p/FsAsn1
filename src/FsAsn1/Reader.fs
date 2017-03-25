@@ -34,6 +34,7 @@ type AsnArrayStream(arr: byte[], pos: int) =
 
         member __.ReadBytes(len) = 
             if position + len > arr.Length then
+                position <- arr.Length
                 raise (EndOfAsnStreamException)
             else                
                 let bs = arr.[position..position + len - 1]
@@ -52,6 +53,8 @@ type AsnBoundedStream(stream: IAsnStream, limit: int32) as this =
             if this.CanRead(len) then
                 stream.ReadBytes(len)        
             else
+                //TODO improve
+                stream.ReadBytes(limit - stream.Position) |> ignore
                 raise (EndOfAsnStreamException)
 
         member __.ReadByte() =            
@@ -388,7 +391,7 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] * AsnE
 
                     let newErr = 
                         match err with
-                        | Some(e) -> AsnErrorElement.InvalidValue(header, e) :: errAcc
+                        | Some(e) -> AsnErrorElement.InvalidValue(position, stream.Position - position, header, ty, e) :: errAcc
                         | None -> errAcc
 
                     match v with
@@ -632,7 +635,7 @@ and readElement (ctx: AsnContext) (ty: AsnType option): AsnResult =
         let header = readHeader stream    
         let v, err = readValue ctx header ty     
         
-        let newErr = Option.map (fun e -> InvalidValue(header, e)) err
+        let newErr = Option.map (fun e -> InvalidValue(position, stream.Position - position - header.HeaderLength, header, ty, e)) err
         let newV = Option.map (fun v -> makeElement(header, v, position, ty)) v
                    
         newV, newErr        
@@ -654,7 +657,7 @@ let nameOfType (ty: AsnType) =
     | None, FsAsn1.Schema.ReferencedType(n) -> Some n
     | _, _ -> None
   
-let componentName (el: AsnElement) =
-    match el.SchemaType with    
+let componentName (ty: AsnType option) =
+    match ty with    
     | Some({ ComponentName = Some name }) -> Some name
     | _ -> None

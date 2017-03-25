@@ -49,7 +49,25 @@ type AsnHeader =
       Encoding: Encoding
       Tag: TagNumber
       Length: Length }
+    with
+        member x.ElementLength =
+            let len, lenOctets = 
+                match x.Length with
+                | Definite(l, lenOctets) -> l, lenOctets
+                | Indefinite -> failwith "Not supported"
 
+            //TODO length of identifier octet, now assuming 1
+            1 + lenOctets + len
+
+        member x.HeaderLength =
+            let lenOctets = 
+                match x.Length with
+                | Definite(_, lenOctets) -> lenOctets
+                | Indefinite -> failwith "Not supported"
+
+            //TODO length of identifier octet, now assuming 1
+            1 + lenOctets
+            
 let makeHeader(cls, encoding, tag, length) =
     { Class = cls; Encoding = encoding; Tag = tag; Length = length }
         
@@ -68,15 +86,10 @@ type AsnElement =
       Offset: int32
       SchemaType: Schema.AsnType option }
     with
-        member x.Range =
-            let len, lenOctets = 
-                match x.Header.Length with
-                | Definite(l, lenOctets) -> l, lenOctets
-                | Indefinite -> failwith "Not supported"
+        member x.Range =            
+            (x.Offset, x.Offset + x.Header.ElementLength - 1)
 
-            //TODO length of identifier octet, now assuming 1
-            (x.Offset, x.Offset + 1 + lenOctets + len - 1)
-
+        //TODO move to header
         member x.HeaderRange =
             let lenOctets = 
                 match x.Header.Length with
@@ -84,7 +97,7 @@ type AsnElement =
                 | Indefinite -> failwith "Not supported"
 
             //TODO length of identifier octet, now assuming 1
-            (x.Offset, x.Offset + 1 + lenOctets - 1)
+            (x.Offset, x.Offset + x.Header.HeaderLength - 1)
 
 and AsnValue =
     | Integer of AsnInteger
@@ -116,7 +129,7 @@ type AsnErrorElement =
 // Header has invalid structure
 | InvalidHeader of offset: int32
 // Cannot correctly read value that follows given header
-| InvalidValue of header: AsnHeader * AsnErrorValue
+| InvalidValue of offset: int32 * realLength: int32 * header: AsnHeader * schemaType: Schema.AsnType option * AsnErrorValue
 and AsnErrorValue = 
     { Exception: Exception option; 
       ChildrenErrors: AsnErrorElement list }
