@@ -62,7 +62,7 @@ let read byteArray (modules: ModuleDefinition list) rootTypeName =
     makeHexRuns (element, errElement) byteArray
     |> Core.Option.iter (appendTo hexViewerBytes)
     
-    makeStructureHierarchy ctx viewer (element, errElement)
+    makeStructureHierarchy ctx (element, errElement)
     |> appendTo viewer
     
 let hideIntro () =

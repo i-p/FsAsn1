@@ -161,7 +161,7 @@ let makeHexRuns (asnElement: AsnResult) (bytes: byte[]) =
         
     cataAsnResult fSimple fCollection asnElement
 
-let makeStructureHierarchy (ctx: AsnContext) (_parentEl: HTMLElement) (asnResult: AsnResult) =
+let makeStructureHierarchy (ctx: AsnContext) (asnResult: AsnResult) =
 
     let makeErrorElement (errEl: AsnErrorElement) =
         
@@ -187,39 +187,34 @@ let makeStructureHierarchy (ctx: AsnContext) (_parentEl: HTMLElement) (asnResult
             el.classList.add "error"            
             el
             
-    let fSimple (result: AsnResult) = 
-        fun parents -> 
-            match result with 
-            | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
-            | Some(el), _ ->                
-                // TODO FIX
-                let range = getRange result |> Core.Option.get
+    let fSimple (result: AsnResult) =         
+        match result with 
+        | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
+        | Some(el), _ ->                
+            // TODO FIX
+            let range = getRange result |> Core.Option.get
 
-                elInfo ctx range el.Header (Some el.Value) el.SchemaType true
-            | None, Some(errEl) ->                
-                makeErrorElement errEl                
+            elInfo ctx range el.Header (Some el.Value) el.SchemaType true
+        | None, Some(errEl) ->                
+            makeErrorElement errEl                
 
-    let fCollection (result: AsnResult) (children: (AsnResult list -> HTMLElement)[]) =                 
-        fun parents ->
-            let newParents = result :: parents
-            let childrenEl = children |> Array.map (fun c -> c newParents)
+    let fCollection (result: AsnResult) children =                         
+        match result with
+        | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
+        | Some(el), _ ->                
+            // TODO FIX
+            let range = getRange result |> Core.Option.get
+
+            let dom = elInfo ctx range el.Header (Some el.Value) el.SchemaType false
+
+            children |> Array.iter (fun c -> dom.appendChild c |> ignore)
+            dom    
+        | None, Some(errEl) ->
+            let el = makeErrorElement errEl                
+            children |> Array.iter (fun c -> el.appendChild c |> ignore)
+            el
             
-            match result with
-            | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
-            | Some(el), _ ->                
-                // TODO FIX
-                let range = getRange result |> Core.Option.get
-
-                let dom = elInfo ctx range el.Header (Some el.Value) el.SchemaType false
-
-                childrenEl |> Array.iter (fun c -> dom.appendChild c |> ignore)
-                dom    
-            | None, Some(errEl) ->
-                let el = makeErrorElement errEl                
-                childrenEl |> Array.iter (fun c -> el.appendChild c |> ignore)
-                el
-            
-    cataAsnResult fSimple fCollection asnResult []
+    cataAsnResult fSimple fCollection asnResult
 
 let makeSchemaDom (info: SchemaInfo) schema md =         
     let schemaRootEl = document.createElement("div")
