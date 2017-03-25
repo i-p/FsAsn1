@@ -167,7 +167,7 @@ type ViewerPlugin() =
                 | ".ctor", 
                     [Type (EntFullName("System.DateTime")); 
                      Type (EntFullName("System.TimeSpan"))] ->
-                    emit "({ dateTime: $0, offset: $1 })"
+                    emit "[$0, $1]"
                 | ".ctor", 
                     [Type (Fable.Type.Number _);
                      Type (Fable.Type.Number _);
@@ -177,9 +177,9 @@ type ViewerPlugin() =
                      Type (Fable.Type.Number _);
                      Type (Fable.Type.Number _);
                      Type (EntFullName("System.TimeSpan"))] ->
-                    emit "({ dateTime: new Date($0,$1,$2,$3,$4,$5,$6), offset: $7 })"
+                    emit "[ new Date(Date.UTC($0,$1 - 1,$2,$3,$4,$5,$6)), $7]"
                 | "get_DateTime", [] ->
-                    prop "dateTime"
+                    prop "0"
                 | _ -> 
                     None
             | "System.Convert" ->
