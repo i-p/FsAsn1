@@ -26,23 +26,21 @@ let typeNameEl (ty: AsnType option) =
         el.href <- "#t-" + name
         el :> HTMLElement)
 
-let componentNameEl (el: AsnElement) =
-    componentName el
+let componentNameEl (ty: AsnType option) =
+    componentName ty
     |> Core.Option.map (fun n ->
         let el = document.createElement("span")
         el.textContent <- n
         el.className <- "s-component-name"
         el)
 
-let elInfo (ctx: AsnContext) (asnElement: AsnElement) (_parentAsnElements: AsnElement list) =        
-    let (s, e) = asnElement.Range    
+let elInfo (ctx: AsnContext) (s,e) (header: AsnHeader) (value: AsnValue option) (schemaType: AsnType option) isSimpleValue =            
     let elId = sprintf "S%d-%d" s e
         
     let checkbox, label =
-        match asnElement.Value with
-        | SimpleValue ->
+        if isSimpleValue then
             None, None
-        | Collection(_) ->
+        else
             let checkbox = document.createElement_input()
             checkbox.``type`` <- "checkbox"
             checkbox.id <- "cb-" + elId
@@ -51,16 +49,17 @@ let elInfo (ctx: AsnContext) (asnElement: AsnElement) (_parentAsnElements: AsnEl
             label.setAttribute("for", "cb-" + elId)
             Some (checkbox :> HTMLElement), Some (label :> HTMLElement)
 
-    let typeName = typeNameEl asnElement.SchemaType
-    let compName = componentNameEl asnElement
-    let asnType = typeStr asnElement |> makeSpan "s-asn-type"
-    let value = valueStr asnElement |> Core.Option.map (makeSpan "s-value")
+    let typeName = typeNameEl schemaType
+
+    let compName = componentNameEl schemaType
+    let asnType = value |> Core.Option.map (typeStr >> makeSpan "s-asn-type")
+    let value = value |> Core.Option.bind(valueStr) |> Core.Option.map (makeSpan "s-value")
         
-    let choiceComponent = 
+    let choiceComponent =         
         let componentType = 
-            match (asnElement.SchemaType |> Core.Option.map ctx.ResolveType) with
+            match (schemaType |> Core.Option.map ctx.ResolveType) with
             | Some({ Kind = ChoiceType(cs) }) ->
-                matchChoiceComponent ctx asnElement.Header cs        
+                matchChoiceComponent ctx header cs        
             | _ -> None
 
         componentType
@@ -86,7 +85,7 @@ let elInfo (ctx: AsnContext) (asnElement: AsnElement) (_parentAsnElements: AsnEl
     let el = document.createElement "div"
     el.id <- elId
 
-    [checkbox; label; compName; value; typeName; choiceComponent; Some asnType]
+    [checkbox; label; compName; value; typeName; choiceComponent; asnType]
     |> List.choose id
     |> List.iter (appendTo el)
 
@@ -106,14 +105,34 @@ let makeOffsets byteLength =
             yield div
     }
 
-let makeHexRuns (asnElement: AsnElement) (bytes: byte[]) =
+let getRange (result: AsnResult) =
+    match result with
+    | None, None -> failwith "should not happen"
+    | Some(el), None ->
+        Some(el.Range)
+    | _, Some(InvalidValue(offset, realLength, h, _, _)) ->
+        Some(offset, offset + h.HeaderLength + realLength - 1)
+    | _ ->
+        None
+ 
+let getHeaderRange (result: AsnResult) =
+    match result with
+    | None, None -> failwith "should not happen"
+    | Some(el), None ->
+        Some(el.HeaderRange)
+    | _, Some(InvalidValue(offset, length, h, _, _)) ->
+        Some(offset, offset + h.HeaderLength - 1)
+    | _ ->
+        None
+        
+
+let makeHexRuns (asnElement: AsnResult) (bytes: byte[]) =
     let toHexString (s, e) =                 
         bytes.[s..e]
         |> Array.map byteToUpperHex 
         |> String.concat " "
         
-    let makeId (el: AsnElement) =
-        let s, e = el.Range
+    let makeId (s, e) =        
         sprintf "H%d-%d" s e
 
     let makeHexRun (s, e) id =
@@ -122,30 +141,85 @@ let makeHexRuns (asnElement: AsnElement) (bytes: byte[]) =
         span.id <- id
         span
 
-    let fSimple (el: AsnElement) =                         
-        makeHexRun el.Range (makeId el)
+    let fSimple result =                         
+        let range = getRange result
+        
+        range 
+        |> Core.Option.map (fun r -> makeHexRun r (makeId r))
 
-    let fCollection (el: AsnElement) children =                 
-        let run = makeHexRun el.HeaderRange (makeId el)
-        children |> Array.iter (appendTo run)
-        run
+    let fCollection result children =                 
+        let range = getRange result
+        let headerRange = getHeaderRange result
 
-    cataAsn fSimple fCollection asnElement
+        match range, headerRange with
+        | Some(r), Some(hr) ->
+            let run = makeHexRun hr (makeId r)
+            children |> Seq.choose id |> Seq.iter (appendTo run)
+            Some run
+        | _ ->
+            None
+        
+    cataAsnResult fSimple fCollection asnElement
 
-let makeStructureHierarchy (ctx: AsnContext) (_parentEl: HTMLElement) (asnElement: AsnElement) =
-    let fSimple (el: AsnElement) = 
+let makeStructureHierarchy (ctx: AsnContext) (_parentEl: HTMLElement) (asnResult: AsnResult) =
+
+    let makeErrorElement (errEl: AsnErrorElement) =
+        
+        match errEl with
+        | NoData(_) -> 
+            let el = document.createElement "div"
+            el.textContent <- "No data"
+            el
+        | InvalidHeader(_) ->
+            let el = document.createElement "div"
+            el.textContent <- "Invalid header"
+            el        
+        | InvalidValue(offset, length, h, ty, { Exception = ex; ChildrenErrors = childrenErrors }) ->            
+            // We cannot rely on the length in header
+            let s, e = offset, offset + h.HeaderLength + length - 1
+            let el = elInfo ctx (s,e) h None ty (childrenErrors = [])
+            
+            let el2 = document.createElement "span"
+            el2.classList.add "error-message"
+            el2.textContent <- "Invalid value" + (if ex.IsSome then ": " + ex.Value.Message else "")
+            el.appendChild(el2) |> ignore
+
+            el.classList.add "error"            
+            el
+            
+    let fSimple (result: AsnResult) = 
         fun parents -> 
-            elInfo ctx el parents
+            match result with 
+            | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
+            | Some(el), _ ->                
+                // TODO FIX
+                let range = getRange result |> Core.Option.get
 
-    let fCollection (el: AsnElement) (children: (AsnElement list -> HTMLElement)[]) =                 
+                elInfo ctx range el.Header (Some el.Value) el.SchemaType true
+            | None, Some(errEl) ->                
+                makeErrorElement errEl                
+
+    let fCollection (result: AsnResult) (children: (AsnResult list -> HTMLElement)[]) =                 
         fun parents ->
-            let newParents = el :: parents
+            let newParents = result :: parents
             let childrenEl = children |> Array.map (fun c -> c newParents)
-            let dom = elInfo ctx el parents
-            childrenEl |> Array.iter (fun c -> dom.appendChild c |> ignore)
-            dom
+            
+            match result with
+            | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
+            | Some(el), _ ->                
+                // TODO FIX
+                let range = getRange result |> Core.Option.get
 
-    cataAsn fSimple fCollection asnElement []
+                let dom = elInfo ctx range el.Header (Some el.Value) el.SchemaType false
+
+                childrenEl |> Array.iter (fun c -> dom.appendChild c |> ignore)
+                dom    
+            | None, Some(errEl) ->
+                let el = makeErrorElement errEl                
+                childrenEl |> Array.iter (fun c -> el.appendChild c |> ignore)
+                el
+            
+    cataAsnResult fSimple fCollection asnResult []
 
 let makeSchemaDom (info: SchemaInfo) schema md =         
     let schemaRootEl = document.createElement("div")

@@ -49,19 +49,20 @@ let updateSchema () =
             els.Item(i).classList.add("hidden")
 
         schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
-
+    
 let read byteArray (modules: ModuleDefinition list) rootTypeName =     
     let ctx = AsnContext(AsnArrayStream(byteArray, 0), modules)            
     let ty = rootTypeName |> Core.Option.bind ctx.LookupType
-    let element = readElement ctx ty
+    
+    let element, errElement = readElement ctx ty
         
     makeOffsets byteArray.Length
     |> Seq.iter (appendTo offsetsEl)
-
-    makeHexRuns element byteArray
-    |> appendTo hexViewerBytes
     
-    makeStructureHierarchy ctx viewer element 
+    makeHexRuns (element, errElement) byteArray
+    |> Core.Option.iter (appendTo hexViewerBytes)
+    
+    makeStructureHierarchy ctx viewer (element, errElement)
     |> appendTo viewer
     
 let hideIntro () =
