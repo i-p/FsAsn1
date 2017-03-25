@@ -387,14 +387,14 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] * AsnE
                 try
                     let header = readHeader stream
                     let ty, newState = tryFindType header state acc                
-                    let v, err = readValue ctx header ty
+                    let res = readValue ctx header ty
 
                     let newErr = 
-                        match err with
-                        | Some(e) -> AsnErrorElement.InvalidValue(position, stream.Position - position, header, ty, e) :: errAcc
+                        match left res with                                                                
+                        | Some(e) -> InvalidValue(position, stream.Position - position - header.HeaderLength, header, ty, e) :: errAcc
                         | None -> errAcc
 
-                    match v with
+                    match right res with
                     | Some(vv) ->
                         let el = makeElement(header, vv, position, ty)
                         recurse (el :: acc) (newErr) newState
@@ -469,57 +469,57 @@ and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValueResu
     let stream = ctx.Stream
     match (LanguagePrimitives.EnumOfValue tag) with
     | UniversalTag.Sequence ->                
-        let res, errs = readCollection ctx ty
+        let res, errs = readCollection ctx ty        
+        let el = res |> Sequence
         
-        res |> Sequence |> Some, 
         match errs with
-        | [] -> None
-        | _ -> { AsnErrorValue.Exception = None; ChildrenErrors = errs } |> Some
+        | [] -> Right el
+        | _ -> Both({ AsnErrorValue.Exception = None; ChildrenErrors = errs }, el)
     | UniversalTag.Set->                
         //TODO based on ty, create either Set or SetOf
-        let res, errs = readCollection ctx ty
-        
-        res |> Set |> Some, 
+        let res, errs = readCollection ctx ty        
+        let el = res |> Set
+         
         match errs with
-        | [] -> None
-        | _ -> { AsnErrorValue.Exception = None; ChildrenErrors = errs } |> Some
+        | [] -> Right el
+        | _ -> Both({ AsnErrorValue.Exception = None; ChildrenErrors = errs }, el)
 
     | UniversalTag.Integer ->                
-        stream.ReadBytes(len) |> decodeInteger |> Integer |> Some, None
+        stream.ReadBytes(len) |> decodeInteger |> Integer |> Right
     | UniversalTag.ObjectIdentifier ->                
-        readOid stream len |> ObjectIdentifier |> Some, None
+        readOid stream len |> ObjectIdentifier |> Right
     | UniversalTag.RelativeObjectIdentifier ->
-        readRelativeOid stream len |> RelativeObjectIdentifier |> Some, None
+        readRelativeOid stream len |> RelativeObjectIdentifier |> Right
     | UniversalTag.Null ->
-        Null |> Some, None
+        Null |> Right
     | UniversalTag.PrintableString ->
         let str = stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString
         if (isValidPrintableString str) then
-            PrintableString str |> Some, None
+            PrintableString str |> Right
         else
             failwith "Invalid printable string"
     | UniversalTag.UTF8String ->
-        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String |> Some, None
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> UTF8String |> Right
     | UniversalTag.VisibleString ->  //TODO this is not correct (https://www.itscj.ipsj.or.jp/iso-ir/006.pdf)
-        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> VisibleString |> Some, None
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> VisibleString |> Right
     | UniversalTag.IA5String ->  //TODO check charset
-        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> IA5String |> Some, None
+        stream.ReadBytes(len) |> System.Text.Encoding.UTF8.GetString |> IA5String |> Right
     | UniversalTag.UTCTime ->
-        stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime |> Some, None
+        stream.ReadBytes(len) |> System.Text.Encoding.ASCII.GetString |> decodeUTCTime |> UTCTime |> Right
     | UniversalTag.BitString ->
         let numberOfUnusedBits = stream.ReadByte()            
         let bytes = stream.ReadBytes(len - 1)
-        BitString { NumberOfUnusedBits = numberOfUnusedBits; Data = bytes } |> Some, None
+        BitString { NumberOfUnusedBits = numberOfUnusedBits; Data = bytes } |> Right
     | UniversalTag.OctetString ->
-        stream.ReadBytes(len) |> OctetString |> Some, None
+        stream.ReadBytes(len) |> OctetString |> Right
     | UniversalTag.Boolean ->
         if len <> 1 then raise (AsnElementException("Invalid length of boolean value."))
         match stream.ReadByte() with
-        | 0uy -> Boolean(AsnBoolean.False) |> Some, None
-        | v -> Boolean(AsnBoolean.True(v)) |> Some, None  
+        | 0uy -> Boolean(AsnBoolean.False) |> Right
+        | v -> Boolean(AsnBoolean.True(v)) |> Right
     | _ ->
         printfn "Unsupported universal class tag '%d'" tag
-        stream.ReadBytes(len) |> Unknown |> Some, None
+        stream.ReadBytes(len) |> Unknown |> Right
 
 and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueResult =    
     let (tagNumber, length) = h.Tag, h.Length
@@ -546,13 +546,13 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueRe
         let expectedTag = 
             (ty |> Option.map (fun ty -> ty.Kind) |> Option.map (toExpectedTag ctx))
 
-        let readAsUnknownType () = stream.ReadBytes(len) |> Unknown |> Some, None
+        let readAsUnknownType () = stream.ReadBytes(len) |> Unknown |> Right
         let readWithNoType () =
             match h.Class with
             | AsnClass.Universal ->
                 readValueUniversal ctx tagNumber len None
             | _ ->
-                stream.ReadBytes(len) |> Unknown |> Some, None
+                stream.ReadBytes(len) |> Unknown |> Right
 
         match (expectedTag |> Option.map failsToMatchHeader) with
         | Some(true) ->
@@ -565,14 +565,9 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueRe
         | Some(UniversalTag(_, _)) ->             
             readValueUniversal ctx tagNumber len ty                            
         | Some(ExplicitlyTaggedType(_, _, taggedTy)) ->            
-            let res, err = readElement ctx (Some taggedTy)
-
-            res |> Option.map AsnValue.ExplicitTag, 
-            match err with
-            | Some(e) ->
-                { AsnErrorValue.Exception = None; ChildrenErrors = [e] } |> Some
-            | None -> None            
-
+            readElement ctx (Some taggedTy)
+            |> mapRight AsnValue.ExplicitTag
+            |> mapLeft (fun e -> { AsnErrorValue.Exception = None; ChildrenErrors = [e] })            
         | Some(ImplicitlyTaggedType(_, _, taggedTy)) ->            
             match toExpectedTag ctx taggedTy.Kind with
             | UniversalTag(cls, tag) 
@@ -625,7 +620,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueRe
         with        
         | e ->  
             tryMoveTo (len + position)
-            None, { AsnErrorValue.Exception = Some(e); ChildrenErrors = [] } |> Some
+            Left({ AsnErrorValue.Exception = Some(e); ChildrenErrors = [] })
 
     | Indefinite -> failwith "Not supported yet"    
 and readElement (ctx: AsnContext) (ty: AsnType option): AsnResult =
@@ -633,19 +628,17 @@ and readElement (ctx: AsnContext) (ty: AsnType option): AsnResult =
     let position = stream.Position
     try
         let header = readHeader stream    
-        let v, err = readValue ctx header ty     
         
-        let newErr = Option.map (fun e -> InvalidValue(position, stream.Position - position - header.HeaderLength, header, ty, e)) err
-        let newV = Option.map (fun v -> makeElement(header, v, position, ty)) v
-                   
-        newV, newErr        
+        readValue ctx header ty     
+        |> mapRight (fun v -> makeElement(header, v, position, ty))
+        |> mapLeft (fun e -> InvalidValue(position, stream.Position - position - header.HeaderLength, header, ty, e))        
     with
     | e ->
         printfn "%A" e
         if position = stream.Position then
-            None, Some(AsnErrorElement.NoData(position))
+            Left(AsnErrorElement.NoData(position))
         else
-            None, Some(AsnErrorElement.InvalidHeader(position))
+            Left(AsnErrorElement.InvalidHeader(position))
 
 
 //TODO rename TypeName to AssignedName

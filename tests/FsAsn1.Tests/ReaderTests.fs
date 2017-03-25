@@ -274,10 +274,12 @@ let ``read SSL certificate``() =
     
     let ctx = AsnContext(AsnArrayStream(System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), [md.Value])
     
-    let Some element, None = readElement ctx (md.Value.TryFindType("Certificate"))
-        
-    CollectionAssert.IsEmpty(unknownElements element)    
-    CollectionAssert.IsEmpty(elementsWithoutSchemaType element)
+    match readElement ctx (md.Value.TryFindType("Certificate")) with
+    | Right(el) ->        
+        CollectionAssert.IsEmpty(unknownElements el)    
+        CollectionAssert.IsEmpty(elementsWithoutSchemaType el)
+    | res ->
+        failwithf "Unexpected result: %A" res
 #endif
 
 let elementsWithMissingComponentName (element: AsnElement) =
@@ -335,21 +337,22 @@ let ``read PSSSignDataSHA1.sig``() =
     let content = System.IO.File.ReadAllBytes(__SOURCE_DIRECTORY__ + @"\Data\BouncyCastle\cms\sigs\PSSSignDataSHA1.sig")
     let ctx = AsnContext(AsnArrayStream(content, 0), [md.Value; md2.Value])
     
-    let Some element, None = readElement ctx (md.Value.TryFindType "ContentInfo") 
-    
-    CollectionAssert.IsEmpty(unknownElements element)    
-    CollectionAssert.IsEmpty(elementsWithoutSchemaType element)    
+    match readElement ctx (md.Value.TryFindType "ContentInfo") with
+    | Right(element) ->    
+        CollectionAssert.IsEmpty(unknownElements element)    
+        CollectionAssert.IsEmpty(elementsWithoutSchemaType element)    
 
-    element |> getPath [1;0;1;0] |> shouldHaveType "DigestAlgorithmIdentifier"
+        element |> getPath [1;0;1;0] |> shouldHaveType "DigestAlgorithmIdentifier"
 
-    element |> getPath [1;0;1;0;0] |> shouldHaveComponentName "algorithm"
+        element |> getPath [1;0;1;0;0] |> shouldHaveComponentName "algorithm"
 
-    element |> getPath [1;0;2;0] |> shouldHaveComponentName "eContentType"
+        element |> getPath [1;0;2;0] |> shouldHaveComponentName "eContentType"
 
-    element |> getPath [1;0;3;0;0] |> shouldHaveComponentName "tbsCertificate"
+        element |> getPath [1;0;3;0;0] |> shouldHaveComponentName "tbsCertificate"
 
-    CollectionAssert.IsEmpty(elementsWithMissingComponentName element)
-    ()
+        CollectionAssert.IsEmpty(elementsWithMissingComponentName element)
+    | res ->
+        failwithf "Unexpected result %A" res    
 #endif
        
 [<Test>]
@@ -445,14 +448,13 @@ let validOctetStringHeader =
 
 [<Test>]
 let ``read primitive value - not long enough``() =     
-    let el, errEl, _ = read validOctetString.[0..8]
+    let res, _ = read validOctetString.[0..8]
           
-    match el, errEl with
-    | None, (Some(
-                InvalidValue(0, 1, h, None,
-                   { Exception = Some(EndOfAsnStreamException); 
-                     ChildrenErrors = [] }))) when h = validOctetStringHeader -> ()
-    | _ -> failwithf "Unexpected result: %A %A" el errEl 
+    match res with
+    | Left(InvalidValue(0, 1, h, None,
+            { Exception = Some(EndOfAsnStreamException); 
+                ChildrenErrors = [] })) when h = validOctetStringHeader -> ()
+    | _ -> failwithf "Unexpected result: %A" res
                                      
 [<Test>]
 let ``read primitive value - remaining byte``() = 
@@ -461,17 +463,15 @@ let ``read primitive value - remaining byte``() =
 
 [<Test>]
 let ``read from empty stream``() =
-    let el, errEl, _ = read ""
-
-    equal None el
-    equal (Some(AsnErrorElement.NoData(0))) errEl
+    let res, _ = read ""
+    
+    equal (Left(AsnErrorElement.NoData(0))) res
         
 [<Test>]
 let ``read incomplete header``() =
-    let el, errEl, _ = read "04 "
-
-    equal None el
-    equal (Some(AsnErrorElement.InvalidHeader(0))) errEl    
+    let res, _ = read "04 "
+    
+    equal (Left(AsnErrorElement.InvalidHeader(0))) res
     
 let exampleSchema = parseTypes "T ::= SEQUENCE {name IA5String, ok BOOLEAN}"
 let exampleSequence = "30 0A | 16 05 536D697468 | 01 01 FF"
@@ -490,47 +490,42 @@ let secondSequenceComponent =
 
 [<Test>]
 let ``missing sequence component``() =    
-    let el, errEl, _ = read "30 0A | 16 05 536D697468"
+    let res, _ = read "30 0A | 16 05 536D697468"
     
-    equal (Some {
-            Header = sequenceHeader
-            Value = AsnValue.Sequence [| firstSequenceComponent |]
-            Offset = 0
-            SchemaType = None
-        }) el
-        
-    equal 
-        (Some(InvalidValue(0, 7, sequenceHeader, None,
-                { Exception = None; 
-                  ChildrenErrors = [ NoData(9) ]}))) errEl
+    let expectedEl =
+        { Header = sequenceHeader
+          Value = AsnValue.Sequence [| firstSequenceComponent |]
+          Offset = 0
+          SchemaType = None }
+    let expectedErr =
+        InvalidValue(0, 7, sequenceHeader, None,
+            { Exception = None; 
+                ChildrenErrors = [ NoData(9) ]})
 
+    equal (Both(expectedErr, expectedEl)) res
+            
 [<Test>]
 let ``following elements of sequence are read even if there is a previous element with an invalid value``() =    
-    let el, errEl, _ = read "30 0A | 01 05 536D697468 | 01 01 FF"
+    let res, _ = read "30 0A | 01 05 536D697468 | 01 01 FF"
     let firstSequenceComponent' = { firstSequenceComponent.Header with Tag = int UniversalTag.Boolean }
 
-    equal (Some {
-            Header = sequenceHeader
-            Value = AsnValue.Sequence 
-                        [| 
-                            secondSequenceComponent
-                        |]
-            Offset = 0
-            SchemaType = None
-        }) el
+    equal (Some { Header = sequenceHeader
+                  Value = AsnValue.Sequence [| secondSequenceComponent |]
+                  Offset = 0
+                  SchemaType = None }) (right res)
 
-    match errEl with
+    match left res with
     | Some(InvalidValue(0, 10, h, None,
             { Exception = None; 
-              ChildrenErrors = [ InvalidValue(2, 7, h2, None,
+              ChildrenErrors = [ InvalidValue(2, 5, h2, None,
                                     { Exception = Some(AsnElementException("Invalid length of boolean value.")); 
                                       ChildrenErrors = []}) ]})) 
         when h = sequenceHeader && h2 = firstSequenceComponent' -> ()
-    | _ -> failwithf "Unexpected result: %A" errEl
+    | errEl -> failwithf "Unexpected result: %A" errEl
 
 [<Test>]
 let ``incomplete value of last sequence component``() =    
-    let el, errEl, _ = read "30 09 | 16 05 536D697468 | 01 01 "
+    let res, _ = read "30 09 | 16 05 536D697468 | 01 01 "
     
     let sequenceHeader' = { sequenceHeader with Length = Definite(9, 1) }
 
@@ -539,21 +534,21 @@ let ``incomplete value of last sequence component``() =
             Value = AsnValue.Sequence [| firstSequenceComponent |]
             Offset = 0
             SchemaType = None
-        }) el
+        }) (right res)
     
-    match errEl with
+    match left res with
     | Some(InvalidValue(0, 9, h, None,
             { Exception = None; 
-              ChildrenErrors = [ InvalidValue(9, 2, h2, None,
+              ChildrenErrors = [ InvalidValue(9, 0, h2, None,
                                     { Exception = Some(EndOfAsnStreamException); 
                                       ChildrenErrors = []}) ]})) 
         when h = sequenceHeader' && h2 = secondSequenceComponent.Header -> ()
-    | _ -> failwithf "Unexpected result: %A" errEl
+    | errEl -> failwithf "Unexpected result: %A" errEl
 
 
 [<Test>]
 let ``incomplete header of last sequence component``() =    
-    let el, errEl, _ = read "30 08 | 16 05 536D697468 | 01 "
+    let res, _ = read "30 08 | 16 05 536D697468 | 01 "
     
     let sequenceHeader' = { sequenceHeader with Length = Definite(8, 1) }
 
@@ -562,11 +557,11 @@ let ``incomplete header of last sequence component``() =
             Value = AsnValue.Sequence [| firstSequenceComponent |]
             Offset = 0
             SchemaType = None
-        }) el
+        }) (right res)
     
     equal 
         (Some(InvalidValue(0, 8, sequenceHeader', None,
                 { Exception = None; 
-                  ChildrenErrors = [InvalidHeader(9)] }))) errEl
+                  ChildrenErrors = [InvalidHeader(9)] }))) (left res)
 
 // TODO tests for incomplete long tag, complete tag missing length, incomplete length

@@ -129,34 +129,34 @@ let internal fetchAsync2 (url:string, init: Fable.Helpers.Fetch.RequestPropertie
 let rec zipAsResultList (els: AsnElement list) (errEls: AsnErrorElement list) =
     match els, errEls with
     | h1 :: tail1, (InvalidValue(_,_,h2,_, _) as err) :: tail2 when h1.Header = h2 -> 
-        (Some h1, Some err) :: zipAsResultList tail1 tail2
+        Both(err, h1) :: zipAsResultList tail1 tail2
     | h1 :: tail1, ((InvalidValue(off, _, h2,_, _) as err) :: tail2) when h1.Header <> h2 -> 
         
         if h1.Offset < off then        
-            (Some h1, None) :: zipAsResultList tail1 errEls
+            Right(h1) :: zipAsResultList tail1 errEls
         else
-            (None, Some(err)) :: zipAsResultList els tail2
+            Left(err) :: zipAsResultList els tail2
     | h1 :: tail1, _ -> 
-        (Some h1, None) :: zipAsResultList tail1 errEls
+        Right(h1) :: zipAsResultList tail1 errEls
     | [], [] -> []
-    | [], xs -> xs |> List.map (fun x -> None, Some x)
-    | xs, [] -> xs |> List.map (fun x -> Some x, None)
+    | [], xs -> xs |> List.map Left
+    | xs, [] -> xs |> List.map Right
 
-let rec cataAsnResult fSimple fCollection ((el, errEl): AsnResult): 't = 
+let rec cataAsnResult fSimple fCollection (res: AsnResult): 't = 
     let recurse = cataAsnResult fSimple fCollection
 
     let isCollectionElement, elChildren = 
-        match el with 
+        match right res with 
         | Some({Value = Collection(items)}) -> true, items
         | _ -> false, [||] 
 
     let isErrorCollectionElement, errChildren =
-        match errEl with 
+        match left res with 
         | Some(InvalidValue(_, _,_,_, { ChildrenErrors = head :: rest })) -> true, head :: rest
         | _ -> false, []
 
 
     if isCollectionElement || isErrorCollectionElement then
-        fCollection (el, errEl) (zipAsResultList (elChildren |> Array.toList) errChildren |> List.map recurse |> List.toArray) 
+        fCollection res (zipAsResultList (elChildren |> Array.toList) errChildren |> List.map recurse |> List.toArray) 
     else
-        fSimple (el, errEl)
+        fSimple res

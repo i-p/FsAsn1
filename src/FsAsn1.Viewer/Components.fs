@@ -106,21 +106,21 @@ let makeOffsets byteLength =
     }
 
 let getRange (result: AsnResult) =
-    match result with
-    | None, None -> failwith "should not happen"
-    | Some(el), None ->
+    match result with    
+    | Right(el) ->
         Some(el.Range)
-    | _, Some(InvalidValue(offset, realLength, h, _, _)) ->
+    | Left(InvalidValue(offset, realLength, h, _, _))
+    | Both(InvalidValue(offset, realLength, h, _, _), _) ->
         Some(offset, offset + h.HeaderLength + realLength - 1)
     | _ ->
         None
  
 let getHeaderRange (result: AsnResult) =
-    match result with
-    | None, None -> failwith "should not happen"
-    | Some(el), None ->
+    match result with    
+    | Right(el) ->
         Some(el.HeaderRange)
-    | _, Some(InvalidValue(offset, length, h, _, _)) ->
+    | Left(InvalidValue(offset, length, h, _, _))
+    | Both(InvalidValue(offset, length, h, _, _), _) ->
         Some(offset, offset + h.HeaderLength - 1)
     | _ ->
         None
@@ -188,31 +188,26 @@ let makeStructureHierarchy (ctx: AsnContext) (asnResult: AsnResult) =
             el
             
     let fSimple (result: AsnResult) =         
-        match result with 
-        | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
-        | Some(el), _ ->                
-            // TODO FIX
-            let range = getRange result |> Core.Option.get
-
-            elInfo ctx range el.Header (Some el.Value) el.SchemaType true
-        | None, Some(errEl) ->                
+        match result with         
+        | Right(el)
+        | Both(_, el) ->  
+            //TODO FIX range          
+            elInfo ctx (getRange result).Value el.Header (Some el.Value) el.SchemaType true
+        | Left(errEl) ->                
             makeErrorElement errEl                
 
     let fCollection (result: AsnResult) children =                         
-        match result with
-        | None, None -> failwith "Should not happen"  //TODO change definition of AsnResult? This should be forbidden
-        | Some(el), _ ->                
-            // TODO FIX
-            let range = getRange result |> Core.Option.get
-
-            let dom = elInfo ctx range el.Header (Some el.Value) el.SchemaType false
-
-            children |> Array.iter (fun c -> dom.appendChild c |> ignore)
-            dom    
-        | None, Some(errEl) ->
-            let el = makeErrorElement errEl                
-            children |> Array.iter (fun c -> el.appendChild c |> ignore)
-            el
+        let domEl =
+            match result with        
+            | Right(el)
+            | Both(_, el) ->                        
+                //TODO FIX range
+                elInfo ctx (getRange result).Value el.Header (Some el.Value) el.SchemaType false                
+            | Left(errEl) ->
+                makeErrorElement errEl                
+                
+        children |> Array.iter (fun c -> domEl.appendChild c |> ignore)
+        domEl    
             
     cataAsnResult fSimple fCollection asnResult
 

@@ -134,9 +134,40 @@ and AsnErrorValue =
     { Exception: Exception option; 
       ChildrenErrors: AsnErrorElement list }
 
-type AsnResult = AsnElement option * AsnErrorElement option
-type AsnValueResult = AsnValue option * AsnErrorValue option
+type EitherOrBoth<'a, 'b> =
+    | Left of 'a
+    | Right of 'b
+    | Both of left: 'a * right: 'b
+            
+let left x = 
+    match x with
+    | Left(l) -> Some(l)
+    | Right(_) -> None
+    | Both(l, _) -> Some(l)
+    
+let right x = 
+    match x with
+    | Left(_) -> None
+    | Right(r) -> Some(r)
+    | Both(_, r) -> Some(r)    
 
+let mapLeft f x =
+    match x with
+    | Left(l) -> Left(f l)
+    | Right(r) -> Right(r)
+    | Both(l, r) -> Both(f l, r)
+    
+let mapRight f x =
+    match x with
+    | Left(l) -> Left(l)
+    | Right(r) -> Right(f r)
+    | Both(l, r) -> Both(l, f r)
+   
+
+    
+
+type AsnResult = EitherOrBoth<AsnErrorElement, AsnElement>
+type AsnValueResult = EitherOrBoth<AsnErrorValue, AsnValue>
 
 let makeElement(header, value, offset, schemaType) =
     { Header = header; Value = value; Offset = offset; SchemaType = schemaType }

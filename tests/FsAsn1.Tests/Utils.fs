@@ -117,33 +117,38 @@ let shouldReadAs expected hexString =
     let ctx = AsnContext(stream, [])
     let actual =
         match readElement ctx None with
-        | Some(el), None ->
+        | Right(el) ->
             if isDummy expected then convertToDummy el else el
-        | el, errEl ->
-            failwithf "Unexpected element %A or error element %A" el errEl
+        | res ->
+            failwithf "Unexpected result %A" res
         
     equal expected actual
     
-let read (hexString) : (AsnElement option * AsnErrorElement option * AsnContext) =
+let read (hexString) : (AsnResult * AsnContext) =
     let stream = hexString |> hexStringStream
     let ctx = AsnContext(stream, [])        
-    let el, err = readElement ctx None    
-    el, err, ctx        
+    let res = readElement ctx None    
+    res, ctx        
     
-let readAsType typeName (hexString, moduleDefinition) : (AsnElement option * AsnErrorElement option * AsnContext) =
+let readAsType typeName (hexString, moduleDefinition) : (AsnResult * AsnContext) =
     let stream = hexString |> hexStringStream
     let ctx = AsnContext(stream, [moduleDefinition])        
-    let el, err = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)    
-    el, err, ctx
+    let res = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)    
+    res, ctx
 
 let shouldReadAsType typeName expected (hexString, moduleDefinition: FsAsn1.Schema.ModuleDefinition) =
     let stream = hexString |> hexStringStream
     let ctx = AsnContext(stream, [moduleDefinition])
-    let Some(el), None = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)
-    let actual =
-        if isDummy expected then convertToDummy el else el
+    let res = readElement ctx (Some (Map.find typeName moduleDefinition.TypeAssignments).Type)
+    
+    match res with
+    | Right(el) ->
+        let actual =
+            if isDummy expected then convertToDummy el else el
 
-    equal (typeName, expected) (el.SchemaType.Value.TypeName.Value, actual)
+        equal (typeName, expected) (el.SchemaType.Value.TypeName.Value, actual)
+    | _ -> failwithf "Unexpected result: %A" res
+            
 
 #nowarn "1182"
 

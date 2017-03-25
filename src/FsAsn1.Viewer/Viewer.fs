@@ -54,15 +54,15 @@ let read byteArray (modules: ModuleDefinition list) rootTypeName =
     let ctx = AsnContext(AsnArrayStream(byteArray, 0), modules)            
     let ty = rootTypeName |> Core.Option.bind ctx.LookupType
     
-    let element, errElement = readElement ctx ty
+    let res = readElement ctx ty
         
     makeOffsets byteArray.Length
     |> Seq.iter (appendTo offsetsEl)
     
-    makeHexRuns (element, errElement) byteArray
+    makeHexRuns res byteArray
     |> Core.Option.iter (appendTo hexViewerBytes)
     
-    makeStructureHierarchy ctx (element, errElement)
+    makeStructureHierarchy ctx res
     |> appendTo viewer
     
 let hideIntro () =
