@@ -106,22 +106,20 @@ let makeOffsets byteLength =
     }
 
 let getRange (result: AsnResult) =
-    match result with    
-    | Right(el) ->
+    match toTuple result with    
+    | None, Some(el) ->
         Some(el.Range)
-    | Left(InvalidValue(offset, realLength, h, _, _))
-    | Both(InvalidValue(offset, realLength, h, _, _), _) ->
-        Some(offset, offset + h.HeaderLength + realLength - 1)
+    | Some(InvalidValue(invalidElementValue)), _ ->
+        Some(invalidElementValue.RealRange)
     | _ ->
         None
  
 let getHeaderRange (result: AsnResult) =
-    match result with    
-    | Right(el) ->
+    match toTuple result with    
+    | None, Some(el) ->
         Some(el.HeaderRange)
-    | Left(InvalidValue(offset, length, h, _, _))
-    | Both(InvalidValue(offset, length, h, _, _), _) ->
-        Some(offset, offset + h.HeaderLength - 1)
+    | Some(InvalidValue(invalidElementValue)), _ ->    
+        Some(invalidElementValue.HeaderRange)
     | _ ->
         None
         
@@ -163,7 +161,7 @@ let makeHexRuns (asnElement: AsnResult) (bytes: byte[]) =
 
 let makeStructureHierarchy (ctx: AsnContext) (asnResult: AsnResult) =
 
-    let makeErrorElement (errEl: AsnErrorElement) =
+    let makeErrorElement (errEl: AsnElementError) =
         
         match errEl with
         | NoData(_) -> 
@@ -174,10 +172,10 @@ let makeStructureHierarchy (ctx: AsnContext) (asnResult: AsnResult) =
             let el = document.createElement "div"
             el.textContent <- "Invalid header"
             el        
-        | InvalidValue(offset, length, h, ty, { Exception = ex; ChildrenErrors = childrenErrors }) ->            
-            // We cannot rely on the length in header
-            let s, e = offset, offset + h.HeaderLength + length - 1
-            let el = elInfo ctx (s,e) h None ty (childrenErrors = [])
+        | InvalidValue(invalidElementValue) ->                        
+            let range = invalidElementValue.RealRange
+            let ex = invalidElementValue.Value.Exception
+            let el = elInfo ctx range invalidElementValue.Header None invalidElementValue.SchemaType (invalidElementValue.Value.ChildrenErrors = [] )
             
             let el2 = document.createElement "span"
             el2.classList.add "error-message"

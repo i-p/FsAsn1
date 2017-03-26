@@ -283,14 +283,14 @@ let ``read SSL certificate``() =
 #endif
 
 let elementsWithMissingComponentName (element: AsnElement) =
-    let processElement el children = 
+    let processElement (el: AsnElement) children = 
         let childrenResults = 
             children
             |> Array.toList
             |> List.map (fun f -> f [el])
             |> List.concat
                                 
-        fun parents ->                   
+        fun (parents: AsnElement list) ->                   
             match parents with
             | { SchemaType = Some { Kind = FsAsn1.Schema.SequenceType(_) }} :: _
             | { SchemaType = Some { Kind = FsAsn1.Schema.SetType(_) }} :: _
@@ -308,7 +308,7 @@ let elementsWithMissingComponentName (element: AsnElement) =
         []
 
 let getPath (path: int list) (element: AsnElement) =
-    let rec go path element acc =
+    let rec go path (element: AsnElement) acc =
         match element.Value, path with
         | SimpleValue(_), [] -> element, acc
         | SimpleValue(_), _ -> failwith "No collection element found"
@@ -317,11 +317,11 @@ let getPath (path: int list) (element: AsnElement) =
 
     go path element []
 
-let shouldHaveType expected (element, _) =
+let shouldHaveType expected (element: AsnElement, _) =
     let actual = element.SchemaType |> Option.bind (nameOfType)
     equal (Some expected) actual
         
-let shouldHaveComponentName expected (element, _) =
+let shouldHaveComponentName expected (element: AsnElement, _) =
     let actual = componentName element.SchemaType
     equal (Some expected) actual
 
@@ -451,9 +451,13 @@ let ``read primitive value - not long enough``() =
     let res, _ = read validOctetString.[0..8]
           
     match res with
-    | Left(InvalidValue(0, 1, h, None,
-            { Exception = Some(EndOfAsnStreamException); 
-                ChildrenErrors = [] })) when h = validOctetStringHeader -> ()
+    | Left(InvalidValue
+            { Offset = 0
+              RealLength = 1
+              Header = h
+              SchemaType = None
+              Value = { Exception = Some(EndOfAsnStreamException)
+                        ChildrenErrors = [] }}) when h = validOctetStringHeader -> ()
     | _ -> failwithf "Unexpected result: %A" res
                                      
 [<Test>]
@@ -465,24 +469,24 @@ let ``read primitive value - remaining byte``() =
 let ``read from empty stream``() =
     let res, _ = read ""
     
-    equal (Left(AsnErrorElement.NoData(0))) res
+    equal (Left(AsnElementError.NoData { Offset = 0 })) res
         
 [<Test>]
 let ``read incomplete header``() =
     let res, _ = read "04 "
     
-    equal (Left(AsnErrorElement.InvalidHeader(0))) res
+    equal (Left(AsnElementError.InvalidHeader { Offset = 0 })) res
     
 let exampleSchema = parseTypes "T ::= SEQUENCE {name IA5String, ok BOOLEAN}"
 let exampleSequence = "30 0A | 16 05 536D697468 | 01 01 FF"
 
 let sequenceHeader = makeHeader(AsnClass.Universal, Constructed, int UniversalTag.Sequence, Definite(10, 1))
-let firstSequenceComponent = 
+let firstSequenceComponent: AsnElement = 
     { Header = makeHeader(AsnClass.Universal, Primitive, int UniversalTag.IA5String, Definite(5, 1))
       Value = AsnValue.IA5String("Smith")
       Offset = 2
       SchemaType = None } 
-let secondSequenceComponent = 
+let secondSequenceComponent: AsnElement = 
     { Header = makeHeader(AsnClass.Universal, Primitive, int UniversalTag.Boolean, Definite(1, 1))
       Value = AsnValue.Boolean(AsnBoolean.True(255uy))
       Offset = 9                            
@@ -492,15 +496,19 @@ let secondSequenceComponent =
 let ``missing sequence component``() =    
     let res, _ = read "30 0A | 16 05 536D697468"
     
-    let expectedEl =
+    let expectedEl: AsnElement =
         { Header = sequenceHeader
           Value = AsnValue.Sequence [| firstSequenceComponent |]
           Offset = 0
           SchemaType = None }
     let expectedErr =
-        InvalidValue(0, 7, sequenceHeader, None,
-            { Exception = None; 
-                ChildrenErrors = [ NoData(9) ]})
+        InvalidValue
+            { Offset = 0
+              RealLength = 7
+              Header = sequenceHeader
+              SchemaType = None
+              Value = { Exception = None
+                        ChildrenErrors = [ NoData { Offset = 9 } ]}}
 
     equal (Both(expectedErr, expectedEl)) res
             
@@ -509,17 +517,28 @@ let ``following elements of sequence are read even if there is a previous elemen
     let res, _ = read "30 0A | 01 05 536D697468 | 01 01 FF"
     let firstSequenceComponent' = { firstSequenceComponent.Header with Tag = int UniversalTag.Boolean }
 
-    equal (Some { Header = sequenceHeader
+    equal (Some { AsnElement.Header = sequenceHeader
                   Value = AsnValue.Sequence [| secondSequenceComponent |]
                   Offset = 0
                   SchemaType = None }) (right res)
 
     match left res with
-    | Some(InvalidValue(0, 10, h, None,
-            { Exception = None; 
-              ChildrenErrors = [ InvalidValue(2, 5, h2, None,
-                                    { Exception = Some(AsnElementException("Invalid length of boolean value.")); 
-                                      ChildrenErrors = []}) ]})) 
+    | Some(InvalidValue
+            { Offset = 0
+              RealLength = 10
+              Header = h
+              SchemaType = None
+              Value = { Exception = None; 
+                        ChildrenErrors = [ 
+                            InvalidValue 
+                                { Offset = 2
+                                  RealLength = 5
+                                  Header = h2
+                                  SchemaType = None
+                                  Value = { 
+                                      Exception = Some(AsnElementException("Invalid length of boolean value.")); 
+                                      ChildrenErrors = []}}]}})
+                                       
         when h = sequenceHeader && h2 = firstSequenceComponent' -> ()
     | errEl -> failwithf "Unexpected result: %A" errEl
 
@@ -530,18 +549,28 @@ let ``incomplete value of last sequence component``() =
     let sequenceHeader' = { sequenceHeader with Length = Definite(9, 1) }
 
     equal (Some {
-            Header = sequenceHeader'
+            AsnElement.Header = sequenceHeader'
             Value = AsnValue.Sequence [| firstSequenceComponent |]
             Offset = 0
             SchemaType = None
         }) (right res)
     
     match left res with
-    | Some(InvalidValue(0, 9, h, None,
-            { Exception = None; 
-              ChildrenErrors = [ InvalidValue(9, 0, h2, None,
-                                    { Exception = Some(EndOfAsnStreamException); 
-                                      ChildrenErrors = []}) ]})) 
+    | Some(InvalidValue
+            { Offset = 0
+              RealLength = 9
+              Header = h
+              SchemaType = None
+              Value = { 
+                Exception = None; 
+                ChildrenErrors = [
+                    InvalidValue
+                        { Offset = 9
+                          RealLength = 0
+                          Header = h2
+                          SchemaType = None
+                          Value = { Exception = Some(EndOfAsnStreamException); 
+                                    ChildrenErrors = []}} ]}}) 
         when h = sequenceHeader' && h2 = secondSequenceComponent.Header -> ()
     | errEl -> failwithf "Unexpected result: %A" errEl
 
@@ -553,15 +582,20 @@ let ``incomplete header of last sequence component``() =
     let sequenceHeader' = { sequenceHeader with Length = Definite(8, 1) }
 
     equal (Some {
-            Header = sequenceHeader'
+            AsnElement.Header = sequenceHeader'
             Value = AsnValue.Sequence [| firstSequenceComponent |]
             Offset = 0
             SchemaType = None
         }) (right res)
     
     equal 
-        (Some(InvalidValue(0, 8, sequenceHeader', None,
-                { Exception = None; 
-                  ChildrenErrors = [InvalidHeader(9)] }))) (left res)
+        (Some(InvalidValue
+                { Offset = 0
+                  RealLength = 8
+                  Header = sequenceHeader'
+                  SchemaType = None
+                  Value = { Exception = None; 
+                            ChildrenErrors = [
+                                InvalidHeader { Offset = 9 }] }})) (left res)
 
 // TODO tests for incomplete long tag, complete tag missing length, incomplete length

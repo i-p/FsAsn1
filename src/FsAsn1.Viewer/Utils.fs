@@ -126,11 +126,11 @@ let internal fetchAsync2 (url:string, init: Fable.Helpers.Fetch.RequestPropertie
     Fable.Import.Fetch.GlobalFetch.fetch(basePath + url, unbox init) |> Async.AwaitPromise
 
 //TODO refactor - use accumulator
-let rec zipAsResultList (els: AsnElement list) (errEls: AsnErrorElement list) =
+let rec zipAsResultList (els: AsnElement list) (errEls: AsnElementError list) =
     match els, errEls with
-    | h1 :: tail1, (InvalidValue(_,_,h2,_, _) as err) :: tail2 when h1.Header = h2 -> 
+    | h1 :: tail1, (InvalidValue { Header = h2 } as err) :: tail2 when h1.Header = h2 -> 
         Both(err, h1) :: zipAsResultList tail1 tail2
-    | h1 :: tail1, ((InvalidValue(off, _, h2,_, _) as err) :: tail2) when h1.Header <> h2 -> 
+    | h1 :: tail1, ((InvalidValue { Offset = off; Header = h2 }) as err) :: tail2 when h1.Header <> h2 -> 
         
         if h1.Offset < off then        
             Right(h1) :: zipAsResultList tail1 errEls
@@ -152,9 +152,8 @@ let rec cataAsnResult fSimple fCollection (res: AsnResult): 't =
 
     let isErrorCollectionElement, errChildren =
         match left res with 
-        | Some(InvalidValue(_, _,_,_, { ChildrenErrors = head :: rest })) -> true, head :: rest
+        | Some(InvalidValue(iev)) when iev.Value.ChildrenErrors <> [] -> true, iev.Value.ChildrenErrors
         | _ -> false, []
-
 
     if isCollectionElement || isErrorCollectionElement then
         fCollection res (zipAsResultList (elChildren |> Array.toList) errChildren |> List.map recurse |> List.toArray) 

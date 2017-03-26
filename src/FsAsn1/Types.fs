@@ -122,17 +122,31 @@ and AsnValue =
     | ExplicitTag of AsnElement
     | Boolean of AsnBoolean
 
-    
-type AsnErrorElement =
-| NoData of offset: int32
-// Cannot read whole header
-// Header has invalid structure
-| InvalidHeader of offset: int32
-// Cannot correctly read value that follows given header
-| InvalidValue of offset: int32 * realLength: int32 * header: AsnHeader * schemaType: Schema.AsnType option * AsnErrorValue
-and AsnErrorValue = 
-    { Exception: Exception option; 
-      ChildrenErrors: AsnErrorElement list }
+
+type NoData = { Offset: int32 }
+type InvalidHeader = { Offset: int32 }
+type InvalidElementValue = 
+    { Offset: int32
+      RealLength: int32
+      Header: AsnHeader
+      SchemaType: Schema.AsnType option
+      Value: AsnValueError }
+    with
+        member x.RealRange =
+            x.Offset, x.Offset + x.Header.HeaderLength + x.RealLength - 1
+        member x.HeaderRange =
+            x.Offset, x.Offset + x.Header.HeaderLength - 1
+
+and AsnValueError =
+    { Exception: Exception option
+      ChildrenErrors: AsnElementError list }
+and AsnElementError =
+    | NoData of NoData
+    // Cannot read whole header
+    // Header has invalid structure
+    | InvalidHeader of InvalidHeader
+    // Cannot correctly read value that follows given header
+    | InvalidValue of InvalidElementValue
 
 type EitherOrBoth<'a, 'b> =
     | Left of 'a
@@ -163,13 +177,14 @@ let mapRight f x =
     | Right(r) -> Right(f r)
     | Both(l, r) -> Both(l, f r)
    
-
+let toTuple x =
+    left x, right x
     
 
-type AsnResult = EitherOrBoth<AsnErrorElement, AsnElement>
-type AsnValueResult = EitherOrBoth<AsnErrorValue, AsnValue>
+type AsnResult = EitherOrBoth<AsnElementError, AsnElement>
+type AsnValueResult = EitherOrBoth<AsnValueError, AsnValue>
 
-let makeElement(header, value, offset, schemaType) =
+let makeElement(header, value, offset, schemaType): AsnElement =
     { Header = header; Value = value; Offset = offset; SchemaType = schemaType }
      
 let (|SimpleValue|Collection|) (value: AsnValue) =

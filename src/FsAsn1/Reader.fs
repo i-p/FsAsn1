@@ -346,7 +346,6 @@ let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElem
     | _ ->
         failwith "ANY type must refer to a component of OBJECT IDENTIFIER type"      
 
-
 let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previous: ComponentType list, next: ComponentType list) (previousElements: AsnElement list) = 
     
     match next with
@@ -375,12 +374,12 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previo
         | ChoiceComponentTag(_cs) -> 
             failwith "Not implemented yet"
         
-and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] * AsnErrorElement list =
+and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnResult list =
     let stream = ctx.Stream
-
+            
     //TODO refactor
     let readElements tryFindType initialState =
-        let rec recurse acc errAcc state = 
+        let rec recurse acc state =             
             if stream.CanRead(1) then                            
                 let position = stream.Position
                 
@@ -389,39 +388,38 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnElement [] * AsnE
                     let ty, newState = tryFindType header state acc                
                     let res = readValue ctx header ty
 
-                    let newErr = 
-                        match left res with                                                                
-                        | Some(e) -> InvalidValue(position, stream.Position - position - header.HeaderLength, header, ty, e) :: errAcc
-                        | None -> errAcc
+                    let elResult = 
+                        res
+                        |> mapLeft (fun e -> InvalidValue 
+                                                { Offset = position
+                                                  RealLength = stream.Position - position - header.HeaderLength
+                                                  Header = header
+                                                  SchemaType = ty
+                                                  Value = e })
+                        |> mapRight (fun vv -> makeElement(header, vv, position, ty))
 
-                    match right res with
-                    | Some(vv) ->
-                        let el = makeElement(header, vv, position, ty)
-                        recurse (el :: acc) (newErr) newState
-                    | None ->                    
-                        // invalid value should not prevent reading of following elements
-                        recurse acc newErr newState                        
+                    recurse (elResult :: acc) newState                    
                 with
                 | e ->
                     let err = 
                         if stream.Position = position then
-                            NoData(position)
+                            NoData { Offset = position }
                         else
-                            InvalidHeader(position)
+                            InvalidHeader { Offset = position }
                     
-                    acc |> List.toArray |> Array.rev,
-                    (err :: errAcc) |> List.rev
+                    (Left(err) :: acc) |> List.rev
             else
-                acc |> List.toArray |> Array.rev,
-                errAcc |> List.rev
-        recurse [] [] initialState
+                acc |> List.rev
+        
+        recurse [] initialState
             
     let readElementsNoState tryFindType =
         readElements (fun h _ _ ->  tryFindType h, ()) ()
 
     match ty with
     | Kind(SequenceType components) ->
-        readElements (fun header components previousElements ->
+        readElements (fun header components previousResults ->
+            let previousElements = previousResults |> List.choose right
             let cty, previous, next = matchSequenceComponentType ctx header components previousElements
             
             cty, (previous, next)
@@ -469,21 +467,24 @@ and readValueUniversal (ctx : AsnContext) (tag: TagNumber) len ty : AsnValueResu
     let stream = ctx.Stream
     match (LanguagePrimitives.EnumOfValue tag) with
     | UniversalTag.Sequence ->                
-        let res, errs = readCollection ctx ty        
-        let el = res |> Sequence
+        let res = readCollection ctx ty        
+        let el = res |> List.choose right |> List.toArray |> Sequence
+        let errs = res |> List.choose left
         
         match errs with
         | [] -> Right el
-        | _ -> Both({ AsnErrorValue.Exception = None; ChildrenErrors = errs }, el)
+        | _ -> Both({ AsnValueError.Exception = None; ChildrenErrors = errs }, el)
+
     | UniversalTag.Set->                
         //TODO based on ty, create either Set or SetOf
-        let res, errs = readCollection ctx ty        
-        let el = res |> Set
-         
+        let res = readCollection ctx ty   
+        let el = res |> List.choose right |> List.toArray |> Set                 
+        let errs = res |> List.choose left
+        
         match errs with
         | [] -> Right el
-        | _ -> Both({ AsnErrorValue.Exception = None; ChildrenErrors = errs }, el)
-
+        | _ -> Both({ AsnValueError.Exception = None; ChildrenErrors = errs }, el)
+                    
     | UniversalTag.Integer ->                
         stream.ReadBytes(len) |> decodeInteger |> Integer |> Right
     | UniversalTag.ObjectIdentifier ->                
@@ -567,7 +568,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueRe
         | Some(ExplicitlyTaggedType(_, _, taggedTy)) ->            
             readElement ctx (Some taggedTy)
             |> mapRight AsnValue.ExplicitTag
-            |> mapLeft (fun e -> { AsnErrorValue.Exception = None; ChildrenErrors = [e] })            
+            |> mapLeft (fun e -> { AsnValueError.Exception = None; ChildrenErrors = [e] })            
         | Some(ImplicitlyTaggedType(_, _, taggedTy)) ->            
             match toExpectedTag ctx taggedTy.Kind with
             | UniversalTag(cls, tag) 
@@ -620,7 +621,7 @@ and readValue (ctx : AsnContext) (h: AsnHeader) (ty: AsnType option): AsnValueRe
         with        
         | e ->  
             tryMoveTo (len + position)
-            Left({ AsnErrorValue.Exception = Some(e); ChildrenErrors = [] })
+            Left({ AsnValueError.Exception = Some(e); ChildrenErrors = [] })
 
     | Indefinite -> failwith "Not supported yet"    
 and readElement (ctx: AsnContext) (ty: AsnType option): AsnResult =
@@ -631,14 +632,19 @@ and readElement (ctx: AsnContext) (ty: AsnType option): AsnResult =
         
         readValue ctx header ty     
         |> mapRight (fun v -> makeElement(header, v, position, ty))
-        |> mapLeft (fun e -> InvalidValue(position, stream.Position - position - header.HeaderLength, header, ty, e))        
+        |> mapLeft (fun e -> InvalidValue 
+                                { Offset = position
+                                  RealLength = stream.Position - position - header.HeaderLength
+                                  Header = header
+                                  SchemaType = ty
+                                  Value = e })        
     with
     | e ->
         printfn "%A" e
         if position = stream.Position then
-            Left(AsnErrorElement.NoData(position))
+            Left(AsnElementError.NoData { Offset = position })
         else
-            Left(AsnErrorElement.InvalidHeader(position))
+            Left(AsnElementError.InvalidHeader { Offset = position })
 
 
 //TODO rename TypeName to AssignedName
