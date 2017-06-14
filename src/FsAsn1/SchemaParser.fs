@@ -26,8 +26,10 @@ type ImportAttribute(_selector: string, _from: string) =
 let choice (ps: Parser<'a,'b>[]) = FParsec.Primitives.choice ps
 
 type UserState = 
-    { Offset: int32; 
-      UseRanges: bool }
+    { Offset: int32 
+      UseRanges: bool
+      TagKindDefault: TagKind
+      ModuleName: string }
 
 let intIndex (p: Position) = int p.Index
 let intColumn (p: Position) = int p.Column
@@ -96,7 +98,7 @@ let tagKind =
     case "EXPLICIT" Explicit
     <|> case "IMPLICIT" Implicit    
 
-let taggedType = pipe3 tag (opt tagKind) ptype (fun (c,n) t ty -> TaggedType(c, n, t, ty))
+let taggedType = pipe4 tag (opt tagKind) ptype getUserState (fun (c,n) t ty s -> TaggedType(c, n, defaultArg t s.TagKindDefault, ty))
 let prefixedType = taggedType
 
 let pnull = case "NULL" NullType
@@ -255,11 +257,11 @@ let ptypeKind =
         (typeReference |>> ReferencedType) |]
 
 ptypeRef :=
-    withRange (ptypeKind .>>. opt pconstraint)  
-    |>> (fun (r,(kind, cs)) -> 
+    withRange (ptypeKind .>>. opt pconstraint .>>. getUserState)      
+    |>> (fun (r,((kind, cs), state)) -> 
           { Kind = kind;
             ComponentName = None; 
-            SchemaName = ""; 
+            SchemaName = state.ModuleName; 
             Range = r; 
             TypeName = None;
             Constraint = cs })
@@ -308,7 +310,7 @@ let moduleDefinitionBegin =
               Range = None } )
 
 let parseSubstring p str start count =
-    match runParserOnSubstring p { Offset = 0; UseRanges = true } "" str start count with
+    match runParserOnSubstring p { Offset = 0; UseRanges = true; TagKindDefault = Explicit; ModuleName = "GLOBAL" } "" str start count with
     | Success(result, _, _) -> result
     | Failure(errorMsg, _, _) -> failwith errorMsg
 
@@ -325,7 +327,7 @@ let previousIndex (str: string) startIndex (f: char -> bool) =
 let isNewline c = c = '\r' || c = '\n'
 let isWhitespace c = c = ' ' || isNewline c
 
-let parseAssignmentsInRange (str: string) fromIndex toIndex =           
+let parseAssignmentsInRange (str: string) fromIndex toIndex tagDefault moduleName =           
     let rec parseNext (fromIndex: int) acc acc2 =         
         let mutable index = str.IndexOf("::=", fromIndex)
         
@@ -345,11 +347,11 @@ let parseAssignmentsInRange (str: string) fromIndex toIndex =
             
             let count = toIndex - start
             
-            match (runParserOnSubstring typeAssignment { Offset = start; UseRanges = true } "" str start count) with
+            match (runParserOnSubstring typeAssignment { Offset = start; UseRanges = true; TagKindDefault = tagDefault; ModuleName = moduleName } "" str start count) with
             | Success(typeAssignment, _, _) -> 
                 recurse ({ typeAssignment with Range = typeAssignment.Range |> Option.map trimRangeEnd } :: acc) acc2
             | Failure(_errorMsg, _, _) ->                
-                match (runParserOnSubstring valueAssignment { Offset = start; UseRanges = true } "" str start count) with
+                match (runParserOnSubstring valueAssignment { Offset = start; UseRanges = true; TagKindDefault = tagDefault; ModuleName = moduleName } "" str start count) with
                 | Success(valueAssignment, _, _) ->                     
                     recurse acc ({ valueAssignment with Range = valueAssignment.Range |> Option.map trimRangeEnd } :: acc2)
                 | Failure(_errorMsg, _, _) ->
@@ -389,7 +391,14 @@ let parseModuleDefinition (str: string) (start: int) =
         //TODO check that there are only spaces between this position and previous line break
         let endIndex = str.IndexOf("END", lineStart + startPos.IntIndex)
 
-        let types, values = parseAssignmentsInRange str (lineStart + startPos.IntIndex) endIndex
+        let tagKindDefault =
+            match mdb.TagDefault with
+            | Some(ExplicitTags) -> Explicit
+            | Some(ImplicitTags) -> Implicit
+            | Some(AutomaticTags) -> failwith "Automatic tags are not supported"
+            | None -> Explicit
+
+        let types, values = parseAssignmentsInRange str (lineStart + startPos.IntIndex) endIndex tagKindDefault mdb.Identifier
 
         { mdb with 
             TypeAssignments = types |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList

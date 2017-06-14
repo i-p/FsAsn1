@@ -57,7 +57,7 @@ let ``parse tagged type``() =
         (TaggedType
             (None, 
              123,
-             Some Explicit, 
+             Explicit, 
              referencedType("SomeType")))
 
 [<Test>]
@@ -144,7 +144,7 @@ let ``parse explitly tagged component with default value`` () =
     "version [0] EXPLICIT Version DEFAULT v1" 
     |> shouldParseAs componentType
         (mkComponentType("version", 
-            TaggedType(None, 0, Some Explicit, referencedType("Version")) |> toType, 
+            TaggedType(None, 0, Explicit, referencedType("Version")) |> toType, 
             defaultValue(ReferencedValue("v1"))))
             
 [<Test>]
@@ -152,7 +152,7 @@ let ``parse implictly tagged optional component`` () =
     "issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL" 
     |> shouldParseAs componentType
         (mkComponentType("issuerUniqueID", 
-            TaggedType(None, 1, Some Implicit, referencedType("UniqueIdentifier")) |> toType, 
+            TaggedType(None, 1, Implicit, referencedType("UniqueIdentifier")) |> toType, 
             optional))
 
 [<Test>]    
@@ -361,14 +361,14 @@ let ``parse SET``() =
     |> shouldParseAs ptypeKind 
         (SetType(
             [mkComponentType("name", ReferencedType "Name" |> toType, None)
-             mkComponentType("dateOfBirth", TaggedType(None, 0, None, ReferencedType "Date" |> toType) |> toType, None) ] ))
+             mkComponentType("dateOfBirth", TaggedType(None, 0, defaultTagKind, ReferencedType "Date" |> toType) |> toType, None) ] ))
 
 [<Test>]
 let ``parse component with SEQUENCE OF type`` () =
     "children  [3] IMPLICIT SEQUENCE OF ChildInformation DEFAULT {}" 
     |> shouldParseAs componentType
         (mkComponentType("children",
-            (TaggedType(None, 3, Some TagKind.Implicit, 
+            (TaggedType(None, 3, TagKind.Implicit, 
                 (AsnTypeKind.SequenceOfType
                     (None, SequenceOfType.SequenceOfType(referencedType("ChildInformation")))) |> toType)) |> toType,
             Some(Default(SequenceOfValue([])))))
@@ -436,10 +436,14 @@ let ``parse start of module definition with imports``() =
                         ValueReferences = ["value1"; "value2"] } ]
           Range = None }
 
+
+let parseAssignmentsInRangeTest str fromIndex toIndex =
+    parseAssignmentsInRange str fromIndex toIndex defaultTagKind "TEST"
+
 [<Test>]
 let ``correctly determine range of a type assignment followed by a comment``() =
     let str = "T ::= SEQUENCE {} -- some comment"
-    match parseAssignmentsInRange str 0 (str.Length - 1) with
+    match parseAssignmentsInRangeTest str 0 (str.Length - 1) with
     | ([ta], _) ->
         equal (0, 17) ta.Range.Value
     | _ -> raise (AssertionException("No type assignment"))
@@ -447,7 +451,7 @@ let ``correctly determine range of a type assignment followed by a comment``() =
 [<Test>]
 let ``correctly determine range of a value assignment followed by a comment``() =
     let str = "value INTEGER ::= 3 -- some comment"
-    match parseAssignmentsInRange str 0 (str.Length - 1) with
+    match parseAssignmentsInRangeTest str 0 (str.Length - 1) with
     | (_, [va]) ->
         equal (0, 19) va.Range.Value        
     | _ -> raise (AssertionException("No type assignment"))

@@ -22,7 +22,7 @@ type AsnTypeKind =
     | OctetStringType    
     | AnyType of definedBy: string option
     | IntegerType of NamedNumber list
-    | TaggedType of TagClass option * int * TagKind option * AsnType
+    | TaggedType of TagClass option * int * TagKind * AsnType
     | ReferencedType of string
 and AsnType = 
     { Kind: AsnTypeKind

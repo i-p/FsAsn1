@@ -14,12 +14,13 @@ type InitMsgUtils() =
     inherit FSharpCustomMessageFormatter()
 #endif
 
+let defaultTagKind = TagKind.Explicit
 
 let equal (expected: 'T) (actual: 'T) =    
     NUnit.Framework.Assert.AreEqual(expected, actual)
 
 let parse p str =
-    match runParserOnString p { Offset = 0; UseRanges = false } "" str with
+    match runParserOnString p { Offset = 0; UseRanges = false; TagKindDefault = defaultTagKind; ModuleName = "TEST" } "" str with
     | Success(result, _, _) -> result
     | Failure(errorMsg, _, _) -> failwith errorMsg
   
@@ -54,7 +55,7 @@ let mkChoiceComponent (name, ty) =
 let toIndexLineColumn (p: Position) =
     (p.IntIndex, p.IntLine, p.IntColumn)
 
-let private hexStringToBytes (str: string) =    
+let hexStringToBytes (str: string) =    
     str
     |> Seq.filter (fun c -> c <> ' ' && c <> '|' && c <> '\n' && c <> '\r')
     |> Seq.toList    
@@ -62,7 +63,7 @@ let private hexStringToBytes (str: string) =
     |> Seq.map (fun chars -> Convert.ToByte(String(chars), 16))
     |> Seq.toArray
     
-let private hexStringStream str = AsnArrayStream(hexStringToBytes str, 0)
+let hexStringStream str = AsnArrayStream(hexStringToBytes str, 0)
 
 let private replaceChildren (value: AsnValue) children =
     match value with

@@ -71,15 +71,12 @@ let rec toTypeRep ty lookupType =
     | ChoiceType(_)                     -> failwith "Not implemented yet"
     | AsnTypeKind.SetType(_)            -> failwith "Not implemented yet"
     | AsnTypeKind.SetOfType(_, _)       -> failwith "Not implemented yet"
-    | TaggedType(_, _, Some Implicit, innerTy) ->
+    | TaggedType(_, _, Implicit, innerTy) ->
         let innerRep = toTypeRep innerTy lookupType
         { innerRep with SchemaType = ty }
-    | TaggedType(_, _, Some Explicit, innerTy) ->
+    | TaggedType(_, _, Explicit, innerTy) ->
         let innerRep = toTypeRep innerTy lookupType
-        { innerRep with SchemaType = ty; FromElement = <@ getPrimitiveValue >> %coerceToElement >> %(innerRep.FromElement) @> }
-    | TaggedType(_, _, None, _innerTy) ->
-        // TODO use the default TagKind as specified by ModuleDefinition
-        failwith "Not implemented yet"
+        { innerRep with SchemaType = ty; FromElement = <@ getPrimitiveValue >> %coerceToElement >> %(innerRep.FromElement) @> }    
     | ReferencedType(name) ->
         match lookupType name with
         | Some(ty) ->
@@ -174,7 +171,8 @@ let toProvidedProperty (lookupProvidedType: string -> ProvidedTypeDefinition opt
     ProvidedProperty(prop.Name, propertyType, IsStatic = false, GetterCode = toGetterCode prop.Getter)
 
 let providedTopLevelTypesFromSchema schema =
-    let topLevelTypes = FsAsn1.SchemaParser.parseAssignments schema |> fst |> List.map (fun ta -> (ta.Name, ta.Type))
+    //TODO FIX tagDefault and module name
+    let topLevelTypes = FsAsn1.SchemaParser.parseAssignments schema Explicit "TYPE_PROVIDER" |> fst |> List.map (fun ta -> (ta.Name, ta.Type))
 
     let namedAsnTypes = topLevelTypes |> Map.ofList
 

@@ -267,12 +267,10 @@ let rec toExpectedTag (ctx: AsnContext) (ty: AsnTypeKind) =
     | AsnTypeKind.ReferencedType("T61String") -> UniversalTag.T61String |> wrap    
     | AsnTypeKind.ReferencedType("IA5String") -> UniversalTag.IA5String |> wrap    
     | AsnTypeKind.ReferencedType("UTCTime") -> UniversalTag.UTCTime |> wrap    
-    | AsnTypeKind.ReferencedType("RelativeObjectIdentifier") -> UniversalTag.RelativeObjectIdentifier |> wrap    
-    // TODO the default tag kind should be specified in ASN module definition
-    | AsnTypeKind.TaggedType(cls, tag, None, taggedTy)
-    | AsnTypeKind.TaggedType(cls, tag, Some TagKind.Explicit, taggedTy) ->
+    | AsnTypeKind.ReferencedType("RelativeObjectIdentifier") -> UniversalTag.RelativeObjectIdentifier |> wrap
+    | AsnTypeKind.TaggedType(cls, tag, TagKind.Explicit, taggedTy) ->
         ExplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
-    | AsnTypeKind.TaggedType(cls, tag, Some TagKind.Implicit, taggedTy) ->
+    | AsnTypeKind.TaggedType(cls, tag, TagKind.Implicit, taggedTy) ->
         ImplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
     // An ANY type can be represented by any class/tag
     | AsnTypeKind.AnyType(_) -> AnyTag
@@ -356,7 +354,7 @@ let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previo
         | ExplicitlyTaggedType(cls, tag, { Kind = AnyType(Some(componentName)) }) ->
             let newType = matchAnyTypeDefinedBy ctx componentName previous previousElements
 
-            Some { ty with Kind = TaggedType(toTagClass cls, tag, Some TagKind.Explicit, newType) }, cty :: previous, rest
+            Some { ty with Kind = TaggedType(toTagClass cls, tag, TagKind.Explicit, newType) }, cty :: previous, rest
         | _ ->
             Some ty, cty :: previous, rest
     | (ComponentType(_, ty, Some (NamedTypeModifier.Default _)) as cty) :: rest
