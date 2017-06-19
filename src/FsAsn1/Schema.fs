@@ -75,7 +75,8 @@ and ValueAssignment =
 and TypeAssignment =
     { Name: string
       Type: AsnType
-      Range: (int * int) option } 
+      Range: (int * int) option }
+and OidTypeReference = (string * string)    
 and ModuleImport =
     { Identifier: string
       Oid: (string option * bigint option) []
@@ -89,7 +90,8 @@ and ModuleDefinition =
       TypeAssignments: Map<string, TypeAssignment>
       ValueAssignments: Map<string, ValueAssignment>
       Imports: ModuleImport list
-      Range: (int * int) option } 
+      Range: (int * int) option
+      ElementsDefinedByOid: Map<string, OidTypeReference>  } 
     with
         member __.TryFindType(name) =
             __.TypeAssignments

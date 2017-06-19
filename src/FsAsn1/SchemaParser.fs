@@ -307,7 +307,8 @@ let moduleDefinitionBegin =
               TypeAssignments = Map.empty
               ValueAssignments = Map.empty
               Imports = imports
-              Range = None } )
+              Range = None
+              ElementsDefinedByOid = Map.empty } )
 
 let parseSubstring p str start count =
     match runParserOnSubstring p { Offset = 0; UseRanges = true; TagKindDefault = Explicit; ModuleName = "GLOBAL" } "" str start count with

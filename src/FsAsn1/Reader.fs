@@ -84,6 +84,48 @@ type AsnContext(stream: IAsnStream, modules: ModuleDefinition list) =
             | Some(ty2) -> __.ResolveType(ty2)
         | _ -> ty
 
+    member __.LookupValue(name) =
+        modules
+        |> List.tryPick (fun md -> Map.tryFind name md.ValueAssignments)
+        |> Option.map (fun ta -> ta.Value)
+
+    member __.LookupValueByOid(oid) =
+
+        let rec resolveOidComponent = function
+            | _, Some(num) -> [num]
+            | Some(name), None ->
+                match __.LookupValue(name) with
+                | Some(OidValue(oid)) -> resolveOid oid
+                | Some(_) -> failwithf "Unexpected type for value '%s'" name
+                | None -> failwithf "Cannot find OID value for '%s'" name
+            //TODO use either or both
+            | _ -> failwithf "TODO"
+
+        and resolveOid (oid: (string option * bigint option) list) =
+            oid
+            |> List.collect resolveOidComponent
+
+        let isValueAssignment (oid: AsnInteger []) (v: ValueAssignment) =
+            match v with
+            | { ValueAssignment.Type = { AsnType.Kind = AsnTypeKind.ObjectIdentifierType };
+                Value = Value.OidValue(oidValue) } ->
+                
+                oid = (resolveOid oidValue |> List.toArray)
+            | _ -> false
+        
+        let matchingAssignments =
+            __.Modules                        
+            |> Seq.map (fun m -> m.ValueAssignments)                        
+            |> Seq.collect (Map.toSeq)
+            |> Seq.map snd
+            |> Seq.where (isValueAssignment oid)
+            |> Seq.toList
+
+        match matchingAssignments with        
+        | [va] -> Some(va)
+        | [] -> None
+        | _ -> failwithf "More than one value definition for OID %A" oid
+
     member __.WithBoundedStream(expectedBytes: int32) =
         AsnContext(createBoundedStream stream expectedBytes, modules)        
     member __.Modules with get() = modules
@@ -300,6 +342,10 @@ let matchChoiceComponent (ctx: AsnContext) (header: AsnHeader) (components: (str
                 failwith "TODO Not implemented yet") 
     |> Option.map snd
 
+let oidValueNameToTypeName (name: string) =    
+    let n = name.Substring(name.LastIndexOf("-") + 1)
+    string (System.Char.ToUpper(n.[0])) + n.Substring(1)
+
 let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElements: AsnElement list) =
     let targetElement = 
         previous
@@ -332,17 +378,52 @@ let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElem
 
         match namedOidValue with
         | None -> failwith "None"
-        | Some(name, _) ->
-            // Example: translate id-signedData to SignedData
-            let n = name.Substring("id-".Length)                                
-            let typeName = string (System.Char.ToUpper(n.[0])) + n.Substring(1)                    
+        | Some(name, _) ->            
             let newType = 
-                ctx.LookupType typeName                        
+                ctx.LookupType (oidValueNameToTypeName name)                        
                 |> Option.get
                                                                                               
             newType
     | _ ->
         failwith "ANY type must refer to a component of OBJECT IDENTIFIER type"      
+
+let tryInterpretAsDifferentType (ctx: AsnContext) previousElements componentType typeName schemaName =
+    let oidTypeDefinitions =
+        let md = 
+            ctx.Modules
+            |> List.find (fun m -> m.Identifier = schemaName)
+                
+        Map.tryFind typeName md.ElementsDefinedByOid
+
+    let matchOidComponent name el = 
+        match el with
+        | ({ AsnElement.Value = AsnValue.ObjectIdentifier(oid); 
+                SchemaType = Some({ ComponentName = Some(componentName) }) }) 
+                    when componentName = name -> Some(oid)
+        | _ -> None
+
+    match oidTypeDefinitions with
+    | Some(oidComponent, valueComponent) when Some(valueComponent) = componentType.ComponentName ->
+        let oid = 
+            previousElements 
+            |> List.tryPick (matchOidComponent oidComponent)
+
+        match Option.bind ctx.LookupValueByOid oid with                
+        | Some(v) ->
+            let typeName = oidValueNameToTypeName v.Name
+            //TODO null check
+            let innerType = ctx.LookupType typeName |> Option.get
+
+            Some({ AsnType.Kind = AsnTypeKind.TaggedType(Some(TagClass.Universal), int UniversalTag.OctetString, TagKind.Explicit, innerType)
+                   Constraint = None
+                   TypeName = componentType.TypeName
+                   SchemaName = componentType.SchemaName
+                   ComponentName = componentType.ComponentName
+                   Range = componentType.Range })
+        | _ -> None
+    | _ -> None
+
+
 
 let rec matchSequenceComponentType (ctx: AsnContext) (header: AsnHeader) (previous: ComponentType list, next: ComponentType list) (previousElements: AsnElement list) = 
     
@@ -415,13 +496,20 @@ and readCollection (ctx: AsnContext) (ty: AsnType option) : AsnResult list =
         readElements (fun h _ _ ->  tryFindType h, ()) ()
 
     match ty with
-    | Kind(SequenceType components) ->
+    | Some({ AsnType.Kind = SequenceType components; TypeName = typeName; SchemaName = schemaName }) ->
         readElements (fun header components previousResults ->
             let previousElements = previousResults |> List.choose right
             let cty, previous, next = matchSequenceComponentType ctx header components previousElements
-            
-            cty, (previous, next)
-                        
+                                                    
+            match cty, typeName with
+            | Some(cty), Some(typeName) ->
+                match tryInterpretAsDifferentType ctx previousElements cty typeName schemaName with
+                | Some(newType) ->
+                    Some(newType), (previous, next)
+                | None ->
+                    Some(cty), (previous, next)                                            
+            | _ -> 
+                cty, (previous, next)
         ) ([], components)
 
     | Kind(AsnTypeKind.SequenceOfType(_, SequenceOfType.SequenceOfType(ty))) ->

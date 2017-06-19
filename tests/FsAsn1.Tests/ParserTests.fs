@@ -395,7 +395,8 @@ let ``parse start of module definition``() =
           TypeAssignments = Map.empty
           ValueAssignments = Map.empty
           Imports = []
-          Range = None }
+          Range = None
+          ElementsDefinedByOid = Map.empty }
 
 [<Test>]
 let ``parse start of module definition with line break after module name``() =
@@ -412,7 +413,8 @@ let ``parse start of module definition with line break after module name``() =
           TypeAssignments = Map.empty
           ValueAssignments = Map.empty
           Imports = []
-          Range = None }
+          Range = None
+          ElementsDefinedByOid = Map.empty }
 
 [<Test>]
 let ``parse start of module definition with imports``() =
@@ -434,7 +436,8 @@ let ``parse start of module definition with imports``() =
                         Oid = [| (None, Some 1I); (None, Some 3I) |]
                         TypeReferences = ["Type1"; "Type2"]
                         ValueReferences = ["value1"; "value2"] } ]
-          Range = None }
+          Range = None
+          ElementsDefinedByOid = Map.empty }
 
 
 let parseAssignmentsInRangeTest str fromIndex toIndex =

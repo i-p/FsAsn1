@@ -32,10 +32,10 @@ let shouldPartiallyParseAs (p: Parser<'t, UserState>) (result: 't) str =
     (parse p str) |> equal result
 
 let toType kind =
-    { SchemaName = ""; Range = None; Kind = kind; TypeName = None; Constraint = None; ComponentName = None }
+    { SchemaName = "TEST"; Range = None; Kind = kind; TypeName = None; Constraint = None; ComponentName = None }
 
 let toComponentType componentName kind =
-    { SchemaName = ""; Range = None; Kind = kind; TypeName = None; Constraint = None; ComponentName = Some componentName }
+    { SchemaName = "TEST"; Range = None; Kind = kind; TypeName = None; Constraint = None; ComponentName = Some componentName }
 
 let withName name ty =
     { ty with TypeName = Some name }    

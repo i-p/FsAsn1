@@ -80,7 +80,7 @@ let parseTypes str : FsAsn1.Schema.ModuleDefinition =
     let ta = parse FsAsn1.SchemaParser.typeAssignments str |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList
 
     {
-        Identifier = "_"
+        Identifier = "TEST"
         Oid = [||]
         TagDefault = None
         ExtensibilityImplied = false
@@ -88,6 +88,7 @@ let parseTypes str : FsAsn1.Schema.ModuleDefinition =
         ValueAssignments = Map.empty
         Imports = []
         Range = None
+        ElementsDefinedByOid = Map.empty
     }
 
 [<Test>]
@@ -398,6 +399,48 @@ let ``read CHOICE element and correctly assign schema types``() =
           SchemaType = find "Name" }
 
 open FsAsn1.Schema
+
+[<Test>]
+let ``transform OID value name to type name``() =
+    (oidValueNameToTypeName "id-ce-authorityKeyIdentifier") |> equal "AuthorityKeyIdentifier"
+    (oidValueNameToTypeName "someTypeName") |> equal "SomeTypeName"
+    
+[<Test>]
+let ``parse certificate extension``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
+    //TODO parseAll
+    let md = FsAsn1.SchemaParser.parseModuleDefinition str 0    
+    let md2 = FsAsn1.SchemaParser.parseModuleDefinition str 341179
+    let stream = (@"30 1F 06 03 55 1D 23 04 18 30 16 80 14 4A DD 06 16 1B BC F6 68 B5 76 F5 81 B6 BB 62 1A BA 5A 81 2F") |> hexStringStream
+
+
+    let mdd = 
+        { md.Value 
+          with ElementsDefinedByOid 
+            = Map.ofList [("Extension", ("extnID", "extnValue"))] }
+
+    let ctx = AsnContext(stream, [mdd; md2.Value])
+    
+    match readElement ctx (mdd.TryFindType("Extension")) with
+    | Right({ Value = AsnValue.Sequence(items)}) ->        
+        let extnValue = items.[1]
+        
+        match extnValue with
+        | { Header = { Class = AsnClass.Universal; 
+                       Encoding = Encoding.Primitive;
+                       Tag = 4;
+                       Length = Definite(24,1) } 
+            Value = ExplicitTag({ Value = Sequence([|{ Value = OctetString(keyIdentifier)}|]) }) } ->
+            
+            CollectionAssert.AreEqual(
+                hexStringToBytes "4a dd 06 16 1b bc f6 68 b5 76 f5 81 b6 bb 62 1a ba 5a 81 2f", keyIdentifier)
+            
+            ()
+        | _ ->
+            failwithf "Unexpected result: %A" extnValue
+    | res ->
+        failwithf "Unexpected result: %A" res
+
 
 #if !FABLE
 [<Test>]
