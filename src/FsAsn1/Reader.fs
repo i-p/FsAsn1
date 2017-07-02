@@ -312,8 +312,18 @@ let rec toExpectedTag (ctx: AsnContext) (ty: AsnTypeKind) =
     | AsnTypeKind.ReferencedType("RelativeObjectIdentifier") -> UniversalTag.RelativeObjectIdentifier |> wrap
     | AsnTypeKind.TaggedType(cls, tag, TagKind.Explicit, taggedTy) ->
         ExplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
-    | AsnTypeKind.TaggedType(cls, tag, TagKind.Implicit, taggedTy) ->
-        ImplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
+    | AsnTypeKind.TaggedType(cls, tag, TagKind.Implicit, taggedTy) ->        
+        match ctx.ResolveType taggedTy with
+        | { Kind = ChoiceType(_) } ->
+            // 31.2.7  The tagging construction specifies explicit tagging if any of the following holds:
+            // c)  the "Tag Type" alternative is used and the value of "TagDefault" for the module is  IMPLICIT TAGS or
+            // AUTOMATIC TAGS , but the type defined by "Type" is an untagged choice type, an untagged open type, or
+            // an untagged "DummyReference" (see Rec. ITU-T X.683 | ISO/IEC 8824-4, 8.3).
+            //
+            // Relevant SO issue: https://stackoverflow.com/questions/24166556/untagged-choice-in-asn-1
+            ExplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
+        | _ ->
+            ImplicitlyTaggedType(toAsnClass cls, tag, taggedTy)
     // An ANY type can be represented by any class/tag
     | AsnTypeKind.AnyType(_) -> AnyTag
     // A CHOICE type is represented by one of its components, but we don't know which one
@@ -402,6 +412,14 @@ let tryInterpretAsDifferentType (ctx: AsnContext) previousElements componentType
                     when componentName = name -> Some(oid)
         | _ -> None
 
+    let interpretAs innerType =
+        { AsnType.Kind = AsnTypeKind.TaggedType(Some(TagClass.Universal), int UniversalTag.OctetString, TagKind.Explicit, innerType)
+          Constraint = None
+          TypeName = componentType.TypeName
+          SchemaName = componentType.SchemaName
+          ComponentName = componentType.ComponentName
+          Range = componentType.Range }
+
     match oidTypeDefinitions with
     | Some(oidComponent, valueComponent) when Some(valueComponent) = componentType.ComponentName ->
         let oid = 
@@ -411,15 +429,15 @@ let tryInterpretAsDifferentType (ctx: AsnContext) previousElements componentType
         match Option.bind ctx.LookupValueByOid oid with                
         | Some(v) ->
             let typeName = oidValueNameToTypeName v.Name
-            //TODO null check
-            let innerType = ctx.LookupType typeName |> Option.get
-
-            Some({ AsnType.Kind = AsnTypeKind.TaggedType(Some(TagClass.Universal), int UniversalTag.OctetString, TagKind.Explicit, innerType)
-                   Constraint = None
-                   TypeName = componentType.TypeName
-                   SchemaName = componentType.SchemaName
-                   ComponentName = componentType.ComponentName
-                   Range = componentType.Range })
+            
+            //TODO refactor, configurable oidValueNameToTypeName?                                            
+            match ctx.LookupType typeName with
+            | Some(t) ->
+                Some(interpretAs t)
+            | None ->
+                match ctx.LookupType (typeName + "Syntax") with
+                | Some(t) -> Some(interpretAs t)
+                | None -> None            
         | _ -> None
     | _ -> None
 

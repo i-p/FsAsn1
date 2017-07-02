@@ -91,6 +91,21 @@ let parseTypes str : FsAsn1.Schema.ModuleDefinition =
         ElementsDefinedByOid = Map.empty
     }
 
+let parseTypesImplicitTags str : FsAsn1.Schema.ModuleDefinition = 
+    let ta = parseImplicitTags FsAsn1.SchemaParser.typeAssignments str |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList
+
+    {
+        Identifier = "TEST"
+        Oid = [||]
+        TagDefault = Some(FsAsn1.Schema.TagDefault.ImplicitTags)
+        ExtensibilityImplied = false
+        TypeAssignments = ta
+        ValueAssignments = Map.empty
+        Imports = []
+        Range = None
+        ElementsDefinedByOid = Map.empty
+    }
+
 [<Test>]
 let ``X.690 8.9.3 Example SEQUENCE``() =
     let schema = parseTypes "T ::= SEQUENCE {name IA5String, ok BOOLEAN}"
@@ -398,7 +413,50 @@ let ``read CHOICE element and correctly assign schema types``() =
           Offset = 0
           SchemaType = find "Name" }
 
+
+
+let (|V|) (el: AsnElement) =
+    match el with
+    | { Value = v } -> v
+   
+let (|SV|_|) (el: AsnElement) =
+    match el with
+    | { Value = v; SchemaType = Some(ty) } -> Some(ty, v)
+    | _ -> None
+     
 open FsAsn1.Schema
+
+let (|Ref|_|) (ty: FsAsn1.Schema.AsnType) =
+    match ty with
+    | { Kind = ReferencedType n } -> Some n
+    | _ -> None  
+
+
+[<Test>]
+let ``read CHOICE type component in implicitly tagged module``() =
+    
+    let md = 
+        parseTypesImplicitTags
+            "GeneralName ::= CHOICE { uniformResourceIdentifier       [6]     IA5String }
+             GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName
+             DistributionPointName ::= CHOICE { fullName [0] GeneralNames }
+             DistributionPoint ::= SEQUENCE { distributionPoint [0] DistributionPointName OPTIONAL }
+             "
+                 
+    let data = "30 25 A0 23 A0 21 86 1F 68 74 74 70 3A 2F 2F 70 6B 69 2E 67 6F 6F 67 6C 65 2E 63 6F 6D 2F 47 49 41 47 32 2E 63 72 6C"
+                    
+    let ctx = AsnContext(data |> hexStringStream, [md])
+    
+    match readElement ctx (md.TryFindType("DistributionPoint")) with
+    | Right (V(AsnValue.Sequence 
+                    [| V(ExplicitTag(
+                            V(Sequence 
+                                [| SV(Ref("GeneralName"),
+                                      IA5String "http://pki.google.com/GIAG2.crl") |]))) |])) ->
+        ()    
+    | result ->
+        printfn "%A" result
+        failwith "Unexpected ASN result"           
 
 [<Test>]
 let ``transform OID value name to type name``() =
@@ -406,40 +464,56 @@ let ``transform OID value name to type name``() =
     (oidValueNameToTypeName "someTypeName") |> equal "SomeTypeName"
     
 [<Test>]
-let ``parse certificate extension``() =
-    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")
-    //TODO parseAll
-    let md = FsAsn1.SchemaParser.parseModuleDefinition str 0    
-    let md2 = FsAsn1.SchemaParser.parseModuleDefinition str 341179
+let ``parse AuthorityKeyIdentifier certificate extension``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")    
+    let [md; md2] = FsAsn1.SchemaParser.parseAllModuleDefinitions str    
+    
     let stream = (@"30 1F 06 03 55 1D 23 04 18 30 16 80 14 4A DD 06 16 1B BC F6 68 B5 76 F5 81 B6 BB 62 1A BA 5A 81 2F") |> hexStringStream
 
-
     let mdd = 
-        { md.Value 
-          with ElementsDefinedByOid 
-            = Map.ofList [("Extension", ("extnID", "extnValue"))] }
+        { md with ElementsDefinedByOid = 
+                    Map.ofList [("Extension", ("extnID", "extnValue"))] }
 
-    let ctx = AsnContext(stream, [mdd; md2.Value])
+    let ctx = AsnContext(stream, [mdd; md2])
     
     match readElement ctx (mdd.TryFindType("Extension")) with
-    | Right({ Value = AsnValue.Sequence(items)}) ->        
-        let extnValue = items.[1]
-        
-        match extnValue with
-        | { Header = { Class = AsnClass.Universal; 
-                       Encoding = Encoding.Primitive;
-                       Tag = 4;
-                       Length = Definite(24,1) } 
-            Value = ExplicitTag({ Value = Sequence([|{ Value = OctetString(keyIdentifier)}|]) }) } ->
-            
-            CollectionAssert.AreEqual(
-                hexStringToBytes "4a dd 06 16 1b bc f6 68 b5 76 f5 81 b6 bb 62 1a ba 5a 81 2f", keyIdentifier)
-            
-            ()
-        | _ ->
-            failwithf "Unexpected result: %A" extnValue
+    | Right(V(AsnValue.Sequence(
+                [|_;
+                  V(ExplicitTag(
+                     SV({ TypeName = Some "AuthorityKeyIdentifier" },
+                        Sequence(
+                          [| V(OctetString(_)) |])))) |]))) ->
+        ()
     | res ->
         failwithf "Unexpected result: %A" res
+
+[<Test>]
+let ``parse ExtKeyUsage certificate extension``() =
+    let str = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + @"\Data\rfc5280.txt")    
+    let [md; md2] = FsAsn1.SchemaParser.parseAllModuleDefinitions str    
+    
+    let stream = (@"30 1D 06 03 55 1D 25 04 16 30 14 06 08 2B 06 01 05 05 07 03 01 06 08 2B 06 01 05 05 07 03 02") |> hexStringStream
+
+    let mdd = 
+        { md with ElementsDefinedByOid = 
+                    Map.ofList [("Extension", ("extnID", "extnValue"))] }
+
+    let ctx = AsnContext(stream, [mdd; md2])
+    
+    match readElement ctx (mdd.TryFindType("Extension")) with
+    | Right(V(AsnValue.Sequence(
+                [|_;
+                  V(ExplicitTag(
+                     SV({ TypeName = Some "ExtKeyUsageSyntax" },
+                        Sequence(
+                          [| SV(Ref("KeyPurposeId"),
+                                ObjectIdentifier(_)); 
+                             SV(Ref("KeyPurposeId"),
+                                ObjectIdentifier(_))|]))))|]))) ->
+        ()            
+    | res ->
+        printfn "%A" res
+        failwith "Unexpected result"        
 
 
 #if !FABLE

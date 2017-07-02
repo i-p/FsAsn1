@@ -98,7 +98,16 @@ let tagKind =
     case "EXPLICIT" Explicit
     <|> case "IMPLICIT" Implicit    
 
-let taggedType = pipe4 tag (opt tagKind) ptype getUserState (fun (c,n) t ty s -> TaggedType(c, n, defaultArg t s.TagKindDefault, ty))
+
+let specifyTagKind schemaKind defaultKind innerTypeKind =
+    match schemaKind, innerTypeKind with
+    | Some(kind), _ -> kind
+    | None, _ -> defaultKind
+
+let taggedType = 
+    pipe4 tag (opt tagKind) ptype getUserState 
+        (fun (c,n) t ty s -> TaggedType(c, n, specifyTagKind t s.TagKindDefault ty.Kind, ty))
+
 let prefixedType = taggedType
 
 let pnull = case "NULL" NullType
@@ -405,3 +414,16 @@ let parseModuleDefinition (str: string) (start: int) =
             TypeAssignments = types |> List.map (fun ta -> (ta.Name, ta)) |> Map.ofList
             ValueAssignments = values |> List.map (fun va -> (va.Name, va)) |> Map.ofList
             Range = Some(lineStart + startPos.IntIndex, endIndex + "END".Length) })
+
+let parseAllModuleDefinitions (str: string) =        
+    let rec parseNext start acc =
+        match parseModuleDefinition str start with
+        | Some({ Range = Some(_, endIndex) } as md) -> 
+            parseNext endIndex (md :: acc)
+        | _ ->
+            List.rev acc
+            
+    parseNext 0 []
+
+    
+        

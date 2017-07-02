@@ -24,6 +24,11 @@ let parse p str =
     | Success(result, _, _) -> result
     | Failure(errorMsg, _, _) -> failwith errorMsg
   
+let parseImplicitTags p str =
+    match runParserOnString p { Offset = 0; UseRanges = false; TagKindDefault = TagKind.Implicit; ModuleName = "TEST" } "" str with
+    | Success(result, _, _) -> result
+    | Failure(errorMsg, _, _) -> failwith errorMsg
+
 // Verify that parser consumes the whole input string
 let shouldParseAs (p: Parser<'t, UserState>) (result: 't) str =        
     (parse (p .>> eof) str) |> equal result
