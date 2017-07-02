@@ -209,7 +209,7 @@ let makeStructureHierarchy (ctx: AsnContext) (asnResult: AsnResult) =
             
     cataAsnResult fSimple fCollection asnResult
 
-let makeSchemaDom (info: SchemaInfo) schema md =         
+let makeSchemaDom (info: SchemaInfo) schema modules =         
     let schemaRootEl = document.createElement("div")
     
     schemaRootEl.classList.add("schema")
@@ -220,7 +220,8 @@ let makeSchemaDom (info: SchemaInfo) schema md =
 
     console.time("ranges")
 
-    md.TypeAssignments
+    modules
+    |> Seq.collect (fun md -> md.TypeAssignments)    
     |> Seq.map (fun kvp -> kvp.Value)
     |> Seq.sortBy (fun ta -> fst ta.Range.Value) 
     |> Seq.iter (fun ta  ->                 

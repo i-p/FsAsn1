@@ -100,13 +100,16 @@ let fetchData url =
             return failwithf "ERROR: %d" resp.Status
     }
 
-let parseSchema text =    
-    parseModuleDefinition text 0 |> Core.Option.get    
+let parseSchema text schemaInfo =
+    parseAllModuleDefinitions text
+    |> List.map (fun md ->
+        let overrides = Map.tryFind md.Identifier schemaInfo.Overrides 
 
-
+        { md with ElementsDefinedByOid = defaultArg overrides Map.empty })
+        
 type LoadedSchema =
     { Info: SchemaInfo
-      ModuleDefinition: ModuleDefinition
+      ModuleDefinitions: ModuleDefinition list
       OptionElement: HTMLElement
       SchemaElement: HTMLElement }
 
@@ -115,13 +118,13 @@ let loadSchemaDom info =
         let! text = fetchSchema info
 
         console.time("parsing")
-        let md = parseSchema text
+        let modules = parseSchema text info        
         console.timeEnd("parsing")
 
-        let optEl, schemaEl = makeSchemaDom info text md
+        let optEl, schemaEl = makeSchemaDom info text modules
 
         return { Info = info
-                 ModuleDefinition = md
+                 ModuleDefinitions = modules
                  OptionElement = optEl
                  SchemaElement = schemaEl }
     }
@@ -140,7 +143,7 @@ let loadFile path ty (byteData: byte[]) =
             
         updateSchema()
 
-        let modules = schemaData |> List.ofArray |> List.map (fun ls -> ls.ModuleDefinition)
+        let modules = schemaData |> List.ofArray |> List.collect (fun ls -> ls.ModuleDefinitions)
 
         fileInfoEl.textContent <- sprintf "%s (%.2f KB)" path (float byteData.Length / 1024.0)
 

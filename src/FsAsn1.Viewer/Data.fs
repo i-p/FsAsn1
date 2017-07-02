@@ -3,7 +3,8 @@
 type SchemaInfo = 
     { Id: string
       DisplayName: string
-      Url: string }
+      Url: string
+      Overrides: Map<string, Map<string, string * string>> }
 
 type KnownType =
     { TypeName: string option
@@ -18,11 +19,16 @@ type ExampleFile =
 module Schemas =
     let Cms = { Id = "rfc3852"
                 DisplayName = "RFC3852: Cryptographic Message Syntax (CMS)"
-                Url = "/Data/rfc3852.txt" }
+                Url = "/Data/rfc3852.txt"
+                Overrides = Map.empty }
 
     let X509 = { Id = "rfc5280"
                  DisplayName = "RFC5280: X.509 Certificate and Certificate Revocation List"
-                 Url = "/Data/rfc5280.txt" }
+                 Url = "/Data/rfc5280.txt"
+                 Overrides = 
+                    Map.ofList 
+                        [("PKIX1Explicit88", 
+                            Map.ofList [("Extension", ("extnID", "extnValue"))])] }
 
 module KnownTypes = 
     let X509Certificate = { TypeName = Some "Certificate"
