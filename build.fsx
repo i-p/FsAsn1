@@ -152,20 +152,18 @@ Target "WebServer" (fun _ ->
         } app    
 )
 
+Target "DevRunTestsJS" (fun _ ->
+    "BuildJS" ==> "BuildTestsJS" ==> "BundleTestsJS" ==> "RunTestsJS" |> ignore
+
+    Run "RunTestsJS"    
+)
+
+Target "DevViewerJS" (fun _ ->
+    "BuildViewerJS" ==> "BundleViewerJS" |> ignore
+
+    Run "BundleViewerJS"    
+)
+
 Target "All" DoNothing
-
-"Clean" 
-    ==> "Build"
-    ==> "RunTests"
-    ==> "All"
-
-"PrepareNodeEnv" 
-    ==> "FablePlugin" 
-    ==> "BuildJS"
-
-"BuildJS" ==> "BuildTestsJS"
-"BuildTestsJS" ==> "RunTestsJS"
-
-"BuildJS" ==> "BuildViewerJS"
 
 RunTargetOrDefault "All"
