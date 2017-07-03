@@ -329,7 +329,11 @@ dropbox.addEventListener_drop(fun e ->
     e.dataTransfer.files |> loadSelectedFile    
     box())
 
-fileInput.addEventListener_change(fun e -> fileInput.files |> loadSelectedFile; box ())
+fileInput.addEventListener_change(fun e -> 
+    fileInput.files |> loadSelectedFile    
+    // Ensure that selecting the same file again will raise the change event
+    fileInput.value <- null
+    box ())
 
 
 exampleFiles 
