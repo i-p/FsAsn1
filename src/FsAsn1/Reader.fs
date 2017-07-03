@@ -399,6 +399,7 @@ let matchAnyTypeDefinedBy (ctx: AsnContext) componentName previous (previousElem
 
 let tryInterpretAsDifferentType (ctx: AsnContext) previousElements componentType typeName schemaName =
     let oidTypeDefinitions =
+        // TODO List.tryFind + better error message
         let md = 
             ctx.Modules
             |> List.find (fun m -> m.Identifier = schemaName)

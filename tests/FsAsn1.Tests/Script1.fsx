@@ -41,23 +41,28 @@ let md: FsAsn1.Schema.ModuleDefinition =
       Oid = Array.empty
       TagDefault = None
       ExtensibilityImplied = false
-      TypeAssignments = FsAsn1.SchemaParser.parseAssignments ss |> fst |> Seq.map (fun a -> a.Name, a) |> Map.ofSeq
+      TypeAssignments = FsAsn1.SchemaParser.parseAssignments ss FsAsn1.Schema.TagKind.Explicit "Test" |> fst |> Seq.map (fun a -> a.Name, a) |> Map.ofSeq
       ValueAssignments = Map.empty
       Imports = []
-      Range = None }
+      Range = None
+      ElementsDefinedByOid = Map.empty }
 
 let ctx = AsnContext(AsnArrayStream(File.ReadAllBytes(__SOURCE_DIRECTORY__ + "\Data\google_ssl.cer"), 0), [md])
 //TODO add utility method to ModuleDefinition
-let element = readElement ctx (Some (Map.find "Certificate" md.TypeAssignments).Type) 
+let result = readElement ctx (Some (Map.find "Certificate" md.TypeAssignments).Type) 
 
 type F = FsAsn1.Provided.AsnProvider<ss>
 
-let c = F.Certificate.fromElement(element)
+match result with
+| FsAsn1.Types.AsnResult.Right(element) ->
+    let c = F.Certificate.fromElement(element)
 
-c.signatureAlgorithm
-c.signatureValue
+    c.signatureAlgorithm |> ignore
+    c.signatureValue |> ignore
 
-Assert.AreEqual(bigint 2, c.tbsCertificate.version)
+    Assert.AreEqual(bigint 2, c.tbsCertificate.version)
+| _ ->
+    failwithf "Unexpected result: %A" result
 
 
 
