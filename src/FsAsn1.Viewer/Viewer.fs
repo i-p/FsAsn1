@@ -50,12 +50,20 @@ let updateSchema () =
 
         schemaViewer.querySelector(sprintf "[data-schema-id=%s]" selectedValue).classList.remove("hidden")
     
+let removeAllChildren (el: HTMLElement) =
+    while el.firstChild <> null do
+        el.removeChild(el.firstChild) |> ignore
+
 let read byteArray (modules: ModuleDefinition list) rootTypeName =     
     let ctx = AsnContext(AsnArrayStream(byteArray, 0), modules)            
     let ty = rootTypeName |> Core.Option.bind ctx.LookupType
     
     let res = readElement ctx ty
-        
+
+    removeAllChildren offsetsEl
+    removeAllChildren hexViewerBytes
+    removeAllChildren viewer
+
     makeOffsets byteArray.Length
     |> Seq.iter (appendTo offsetsEl)
     
@@ -135,6 +143,9 @@ let loadFile path ty (byteData: byte[]) =
             ty.Schemas 
             |> Seq.map loadSchemaDom                
             |> Async.Parallel
+                        
+        removeAllChildren moduleSelector
+        removeAllChildren schemasEl
                             
         schemaData 
         |> Array.iter (fun ls ->
