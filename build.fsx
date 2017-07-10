@@ -164,6 +164,21 @@ Target "DevViewerJS" (fun _ ->
     Run "BundleViewerJS"    
 )
 
-Target "All" DoNothing
+Target "All" (fun _ ->
+    "PrepareNodeEnv"
+        ==> "Build"
+        ==> "FablePlugin"
+        ==> "BuildJS"
+        ==> "BuildViewerJS"
+        ==> "BundleViewerJS"
+        ==> "BuildTestsJS"
+        ==> "BundleTestsJS"
+        ==> "RunTests"
+        ==> "RunTPTests"
+        ==> "RunTestsJS"
+        |> ignore
+
+    Run "RunTestsJS"
+)
 
 RunTargetOrDefault "All"

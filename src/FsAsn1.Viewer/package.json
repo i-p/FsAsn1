@@ -9,17 +9,17 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "fable-compiler": "0.7.42",
-    "mocha": "^3.0.1",        
     "bennu": "^17.3.0",
-    "fable-core": "^0.7.26",
+    "core-js": "^2.4.1",
+    "fable-compiler": "0.7.42",
+    "fable-core": "^0.7.30",
     "fable-import-fetch": "^0.2.4",
     "fable-plugins-nunit": "0.7.3",
+    "mocha": "^3.4.2",
     "requirejs": "^2.2.0",
-    "core-js": "^2.4.1",
-    "webpack": "2.3.1",
     "source-map-loader": "^0.1.6",
-    "webpack-node-externals": "^1.5.4",
-    "text-encoding": "0.6.4"
+    "text-encoding": "0.6.4",
+    "webpack": "2.3.1",
+    "webpack-node-externals": "^1.6.0"
   }
 }
