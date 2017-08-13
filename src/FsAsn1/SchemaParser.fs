@@ -425,5 +425,6 @@ let parseAllModuleDefinitions (str: string) =
             
     parseNext 0 []
 
-    
+let parseFile (path: string) =
+    parseAllModuleDefinitions (System.IO.File.ReadAllText(path))
         

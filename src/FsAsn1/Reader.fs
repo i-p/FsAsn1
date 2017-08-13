@@ -71,6 +71,13 @@ let createBoundedStream stream (expectedBytes: int32): IAsnStream =
 type AsnContext(stream: IAsnStream, modules: ModuleDefinition list) =
     static member Empty = AsnContext(AsnArrayStream([||], 0), [])
 
+    static member FromArray(arr, modules) =
+        AsnContext(AsnArrayStream(arr, 0), modules)
+
+    static member FromFile(path, modules) =
+        let data = File.ReadAllBytes(path)
+        AsnContext.FromArray(data, modules)
+
     member __.Stream with get() = stream
     member __.LookupType(name) =         
         modules
@@ -761,7 +768,28 @@ let nameOfType (ty: AsnType) =
     | None, FsAsn1.Schema.ReferencedType(n) -> Some n
     | _, _ -> None
   
+//TODO remove option
 let componentName (ty: AsnType option) =
     match ty with    
     | Some({ ComponentName = Some name }) -> Some name
     | _ -> None
+
+type ElementType = Unknown | Type of AsnType | TypeName of string
+
+let readElementFromArray (modules: ModuleDefinition list) (elType: ElementType) (arr: byte[]): AsnResult =
+    let ctx = AsnContext.FromArray(arr, modules)
+    
+    let ty = 
+        match elType with
+        | Unknown -> None
+        | Type(asnType) -> Some(asnType)
+        | TypeName(name) -> 
+            match ctx.LookupType(name) with
+            | Some(ty) -> Some(ty)
+            | None -> failwithf "Cannot resolve type name '%s'" name
+
+    readElement ctx ty
+
+let readElementFromFile (modules: ModuleDefinition list) (elType: ElementType) (path: string): AsnResult =
+    let data = System.IO.File.ReadAllBytes(path)
+    readElementFromArray modules elType data

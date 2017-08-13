@@ -1,4 +1,5 @@
-﻿module FsAsn1.Types
+﻿[<AutoOpen>]
+module FsAsn1.Types
 
 open System
 open System.IO
@@ -187,7 +188,7 @@ type AsnValueResult = EitherOrBoth<AsnValueError, AsnValue>
 let makeElement(header, value, offset, schemaType): AsnElement =
     { Header = header; Value = value; Offset = offset; SchemaType = schemaType }
      
-let (|SimpleValue|Collection|) (value: AsnValue) =
+let (|SimpleValue|Collection|) (value: AsnValue) =    
     match value with
     | Null
     | Integer(_)
@@ -229,3 +230,12 @@ let rec foldAsn fSimple fCollection acc (asnElement: AsnElement): 't =
     | Collection(items) ->
         let acc = fCollection acc asnElement         
         items |> Array.fold recurse acc
+
+let filter (predicate: AsnElement -> bool) (el: AsnElement) =
+    let fSimple el = 
+        if predicate el then [el] else []
+    let fCollection el children =
+        let result = List.concat children
+        if predicate el then el :: result else result
+        
+    cataAsn fSimple fCollection el
