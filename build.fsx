@@ -62,7 +62,7 @@ Target "RunTPTests" (fun _ ->
 
     let printMessage = fun msg -> if msg.IsError then traceError msg.Message else trace msg.Message
     let success = 
-        !! "tests/FsAsn1.Tests/Script1.fsx"
+        !! "tests/FsAsn1.Tests/TypeProviderTests.fsx"
         |> Seq.map (fun f -> 
             let success, messages = executeFSI "./" f Seq.empty 
         
@@ -74,16 +74,17 @@ Target "RunTPTests" (fun _ ->
 )
 
 Target "FablePlugin" (fun _ ->
-    ["src/FsAsn1.Viewer/Fable.Plugins.Test.fsx"]
+    ["src/FsAsn1.Viewer/Fable.Plugins.FParsec.fsx"; 
+     "src/FsAsn1.Viewer/Fable.Plugins.Viewer.fsx"]
     |> Compile [
         FscHelper.Target FscHelper.TargetType.Library
-        Out "./build/Fable.Plugins.Test.dll"
+        Out "./build/Fable.Plugins.dll"
     ]
 )
 
 Target "BuildJS" (fun _ ->  
     run "./build/js" "node"
-        @"node_modules/fable-compiler/index.js ../../src/FsAsn1/FsAsn1.Fable.fsproj --outDir ../../build/js --plugins ../../build/Fable.Plugins.Test.dll --verbose --dll --module commonjs --coreLib fable-core" 
+        @"node_modules/fable-compiler/index.js ../../src/FsAsn1/FsAsn1.Fable.fsproj --outDir ../../build/js --plugins ../../build/Fable.Plugins.dll --verbose --dll --module commonjs --coreLib fable-core" 
 )
 
 Target "BuildTestsJS" (fun _ -> 
@@ -91,7 +92,7 @@ Target "BuildTestsJS" (fun _ ->
         (@"node_modules/fable-compiler/index.js "
         + @"../../tests/FsAsn1.Tests/FsAsn1.Tests.Fable.fsproj "
         + @"--outDir ../../build/js "
-        + @"--plugins ../../build/Fable.Plugins.Test.dll ../../build/js/node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll "        
+        + @"--plugins ../../build/Fable.Plugins.dll ../../build/js/node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll "        
         + @"--symbols FABLE --module commonjs --coreLib fable-core")
 )
 
@@ -110,7 +111,7 @@ Target "BuildViewerJS" (fun _ ->
         (@"node_modules/fable-compiler/index.js " +
          @"../../src/FsAsn1.Viewer/FsAsn1.Viewer.Fable.fsproj " +
          @"--outDir ../../build/js " +
-         @"--plugins ../../build/Fable.Plugins.Test.dll " +
+         @"--plugins ../../build/Fable.Plugins.dll " +
          @"--verbose --module commonjs --coreLib fable-core")
 )
 

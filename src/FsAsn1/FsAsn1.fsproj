@@ -65,7 +65,6 @@
     <Compile Include="Types.fs" />
     <Compile Include="Reader.fs" />
     <Compile Include="SchemaParser.fs" />
-    <None Include="Script.fsx" />
     <None Include="Scripts\load-references-debug.fsx" />
     <None Include="Scripts\load-project-debug.fsx" />
     <None Include="Scripts\load-references-release.fsx" />

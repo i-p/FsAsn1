@@ -64,7 +64,7 @@
     <Compile Include="ParserTests.fs" />
     <Compile Include="FParsecTests.fs" />
     <Compile Include="ReaderTests.fs" />
-    <None Include="Script1.fsx" />
+    <None Include="TypeProviderTests.fsx" />
     <None Include="Data\google_ssl.cer" />
     <Content Include="Data\rfc5280.txt" />
     <Content Include="Data\rfc3852.txt" />

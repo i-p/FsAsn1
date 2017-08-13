@@ -56,7 +56,9 @@
     <Compile Include="Fable.Helpers.Fetch.fs" />
     <None Include="paket.references" />
     <None Include="package.json" />
-    <None Include="Fable.Plugins.Test.fsx" />
+    <None Include="Fable.Plugins.Helper.fsx" />
+    <None Include="Fable.Plugins.FParsec.fsx" />
+    <None Include="Fable.Plugins.Viewer.fsx" />
     <Content Include="fparsec.es6.js" />
     <Compile Include="JsUtils.fs" />
     <Compile Include="Utils.fs" />
