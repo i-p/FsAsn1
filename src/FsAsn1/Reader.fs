@@ -74,9 +74,11 @@ type AsnContext(stream: IAsnStream, modules: ModuleDefinition list) =
     static member FromArray(arr, modules) =
         AsnContext(AsnArrayStream(arr, 0), modules)
 
+    #if !FABLE_COMPILER
     static member FromFile(path, modules) =
         let data = File.ReadAllBytes(path)
         AsnContext.FromArray(data, modules)
+    #endif
 
     member __.Stream with get() = stream
     member __.LookupType(name) =         
@@ -774,14 +776,14 @@ let componentName (ty: AsnType option) =
     | Some({ ComponentName = Some name }) -> Some name
     | _ -> None
 
-type ElementType = Unknown | Type of AsnType | TypeName of string
+type ElementType = UnknownType | Type of AsnType | TypeName of string
 
 let readElementFromArray (modules: ModuleDefinition list) (elType: ElementType) (arr: byte[]): AsnResult =
     let ctx = AsnContext.FromArray(arr, modules)
     
     let ty = 
         match elType with
-        | Unknown -> None
+        | UnknownType -> None
         | Type(asnType) -> Some(asnType)
         | TypeName(name) -> 
             match ctx.LookupType(name) with
@@ -790,6 +792,8 @@ let readElementFromArray (modules: ModuleDefinition list) (elType: ElementType) 
 
     readElement ctx ty
 
+#if !FABLE_COMPILER
 let readElementFromFile (modules: ModuleDefinition list) (elType: ElementType) (path: string): AsnResult =
     let data = System.IO.File.ReadAllBytes(path)
     readElementFromArray modules elType data
+#endif

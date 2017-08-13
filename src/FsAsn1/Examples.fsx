@@ -78,7 +78,7 @@ collectPaths certElement
 // ASN.1 structure can be read without schema, but it doesn't
 // have to be fully decoded.
 let certElementWithoutSchema =    
-    let result = readElementFromFile modules Unknown certificatePath
+    let result = readElementFromFile modules UnknownType certificatePath
     
     match result with
     | AsnResult.Right(element) ->

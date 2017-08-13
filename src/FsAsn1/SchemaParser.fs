@@ -425,6 +425,7 @@ let parseAllModuleDefinitions (str: string) =
             
     parseNext 0 []
 
+#if !FABLE_COMPILER
 let parseFile (path: string) =
     parseAllModuleDefinitions (System.IO.File.ReadAllText(path))
-        
+#endif
