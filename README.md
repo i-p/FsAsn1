@@ -15,7 +15,7 @@ its interface is not well thought out. For standalone usage it would need tidyin
 
 You can try the web viewer here: 
 
-https://i-p.github.io/asn1-viewer/
+https://i-p.github.io/FsAsn1/
 
 If you have a file which is not displayed correctly or if you'd like to have a support for another schema, feel free to open a Github issue.
 
