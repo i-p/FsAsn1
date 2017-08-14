@@ -1,0 +1,393 @@
+﻿<!doctype html>
+<html>
+<head>
+    <title>ASN.1 Viewer</title>  
+    <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
+    <style>
+        h1 {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 18px;            
+            margin: 0 0 0 5px;
+        }
+        html { height: 100%; }
+
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            height: 100%;
+            margin: 0;
+        }
+
+        header {
+            padding: 5px;
+            background-color: #013988;
+            padding: 5px;
+            color: white;
+        }
+        main {
+            flex: 1 1 auto;            
+        }
+        
+        #bytes {
+            margin-bottom: 5px;
+        }
+        .viewer div {
+            margin-left: 15px;
+            border-left: 1px solid white;
+            border-top: 1px solid white;
+            padding-left: 6px;
+            padding-top: 3px;
+        }
+
+        .viewer > div {
+            background-color: #e2ecfa;
+            margin: 2px;
+        }
+
+        .viewer div.error {
+            background-color:#ffdddd 
+        }
+
+        .error-message {
+            color: darkred;
+        }
+
+        .viewer {            
+            flex: 1 1 30%;
+            overflow-y: scroll;
+            cursor: default;            
+        }
+
+        .schema-viewer {            
+            flex: 1 1 30%;         
+            overflow: hidden;   
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hex-viewer {                        
+            background-color: #f8fbff;
+        }
+
+        #hex-bytes {
+            overflow-y: scroll;
+            display: flex;
+        }
+        #hex-header {
+            display: flex;    
+            flex-direction: row;
+            flex: 0 0 auto;
+        }
+        .hex-viewer {
+            font-family: 'Droid Sans Mono', monospace;
+            font-size: 12px;
+            position: relative;
+            transition: margin-top 0.3s ease-out;
+            width: 420px;
+            min-width: 420px;
+            display: flex;
+            cursor: default;
+            flex-direction: column;
+        }
+
+        .schema-viewer .schema {
+            white-space: pre;
+            font-family: 'Droid Sans Pro', monospace;
+            font-size: 13px;
+            background-color: #f8fbff;
+            padding-left: 10px;            
+        }
+
+        #schemas {
+            overflow: scroll;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        #hex-offsets > div {
+            background-color: #e2ecfa;
+            padding-left: 5px;
+        }
+
+        #hex-offsets {
+            width: 55px;            
+        }
+
+        #hex-header div:first-child {
+            width: 55px;
+            padding-left: 5px;
+            background-color: #e2ecfa;
+        }
+
+        #hex-header div:last-child {
+            width: 340px;
+            background-color: #e2ecfa;
+        }
+
+        #bytes {
+            width: 340px;
+        }
+        .schema-viewer .hover {
+            outline: 3px solid #ffd3a0;
+            background-color: #ffedd8;
+        }
+
+        .hex-viewer .hover {
+            outline: 2px dotted orange;            
+        }
+
+        .hex-viewer .selected {
+            outline: 3px solid orange;
+            background-color: rgb(255, 250, 244);
+        }
+
+        .hex-viewer .hover {            
+            background-color: #ffedd8;
+        }
+
+        .viewer .hover {
+            outline: 2px dotted orange;
+        }
+
+        .viewer .selected {
+            outline: 2px solid orange;
+            background-color: rgb(255, 250, 244);
+        }
+
+        .viewer .hover {
+            background-color: #ffedd8;
+        }
+
+        .schema-viewer .hover {            
+            outline: 2px dotted orange;
+        }
+
+        .schema-viewer .selected {
+            outline: 2px solid orange;
+            background-color: rgb(255, 250, 244);
+            display: table;                      
+            padding: 5px;
+        }
+        
+        .schema-viewer .hover {
+            background-color: #ffedd8;            
+        }
+
+        main {
+            display: flex;
+        }
+
+        .viewer a, .viewer span {
+            display: inline-block;
+            margin-right: 10px;
+            line-height: 1.5;
+        }
+
+        .viewer a {
+            color:rgb(0, 0, 238);
+        }
+
+        .viewer a:visited {
+            color:rgb(0, 0, 238);
+        }
+
+        .s-value {
+            font-weight: bold;
+        }
+
+        .s-asn-type, .s-offset-length {
+            color: gray;
+        }
+
+        .viewer {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 13px;
+        }
+        
+        input[type=checkbox]:checked ~ div {
+            display: none;
+        }
+
+        input[type=checkbox] {
+            display: none;
+        }
+
+        input[type=checkbox] + label:before {
+            content: "-";
+        }
+
+        input[type=checkbox]:checked + label:before {
+            content: "+";
+        }
+
+        .viewer label {
+            display: inline-block;
+            width: 15px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+
+        #module-section {
+            font-family: 'Open Sans';
+            font-size: 12px;
+            padding: 5px;
+            background-color: #f8fbff;
+        }
+
+        #module-section select {
+            font-family: 'Open Sans';
+        }
+
+        .s-choice-component .s-type-name {
+            margin-right: 0;
+        }
+
+        .s-choice-component .s-component-name {
+            margin-right: 5px;
+        }
+
+        .intro {
+            margin: 50px auto;
+            font-family: 'Open Sans';
+        }
+        
+        .dropbox {
+            height: 100px;
+            background-color: #f1f1f1;
+            border: 2px solid #d2d2d2;
+            border-radius: 15px;
+            text-align: center;
+            line-height: 100px;
+        }
+
+        .dropbox.active {
+            border-color: orange;
+            background-color: rgb(255, 250, 244);
+        }
+
+        #file {
+	        width: 1px;
+	        height: 1px;
+	        opacity: 0;
+	        overflow: hidden;
+	        position: absolute;
+	        z-index: -1;
+        }
+
+        label[for=file] {
+            text-decoration: underline;
+            cursor: pointer;
+            color:rgb(0, 0, 238);
+        }
+
+        h1 {
+            display: inline-block;
+            margin-right: 15px;
+        }
+        #file-info {
+            font-family: 'Open Sans';
+            font-size: 14px;
+        }
+        .schema-button {
+            display: block;
+            width: 100%;
+            height: 30px;
+            background-color: white;
+            border: 1px solid gray;               
+            margin-bottom: -1px;                
+            z-index: 0;     
+            position: relative;
+        }
+        .schema-button:first-child {            
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;            
+        }
+        .schema-button:last-child {            
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;                        
+        }
+        .schema-button:hover {
+            background-color: rgb(255, 250, 244);
+            border-color: orange;
+            z-index: 10;
+        }
+        #preview-info {
+            margin: 15px 0;
+        }
+
+        header button {
+            border: 1px solid transparent;
+            border-radius: 3px;
+            background: none;
+        }
+        header button:hover {
+            border: 1px orange solid;
+        }
+        header button svg {
+            fill: white
+        }
+
+        header button:hover svg {
+            fill: orange;
+        }
+
+    </style>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Droid+Sans+Mono" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>ASN.1 Viewer</h1>
+        <span id="file-info"></span>        
+        <button id="close-button" class="hidden" title="Close file">
+            <svg height="1em" viewBox="200 100 1492 1592" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1490 1322q0 40-28 68l-136 136q-28 28-68 28t-68-28l-294-294-294 294q-28 28-68 28t-68-28l-136-136q-28-28-28-68t28-68l294-294-294-294q-28-28-28-68t28-68l136-136q28-28 68-28t68 28l294 294 294-294q28-28 68-28t68 28l136 136q28 28 28 68t-28 68l-294 294 294 294q28 28 28 68z"></path>
+            </svg>
+        </button>
+    </header>
+    <main>
+        <div id="intro" class="intro">
+            Select one of the examples:
+            <ul></ul>           
+                        
+            <input type="file" id="file" name="file" />
+
+            <div id="dropbox" class="dropbox">
+                <label for="file">Select</label> or drop file here                                
+            </div>
+            <div id="preview-info" class="hidden"></div>
+            <div id="schema-selector" class="hidden">
+            </div>
+        </div>
+        <div id="viewer" class="viewer hidden">
+        </div>
+        <div id="hex-viewer" class="hex-viewer hidden">
+            <div id="hex-header">
+                <div>Offset</div>
+                <div>00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F</div>
+            </div>
+            <div id="hex-bytes">
+                <div id="hex-offsets">
+                </div>
+                <div id="bytes"></div>
+            </div>
+        </div>
+        <div id="schema-viewer" class="schema-viewer hidden">
+            <div id="module-section">                
+                <label for="module-selector">ASN.1 Module: </label>
+                <select name="module-selector" id="module-selector">                    
+                </select>
+            </div>
+            <div id="schemas">
+
+            </div>
+        </div>
+    </main>
+
+
+    <script src="bundle.js"></script>
+</body>
+</html>
