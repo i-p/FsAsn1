@@ -42,9 +42,6 @@ function Build-TypeProvider {
     $c.Properties.Item("DefineConstants").Value = $originalValue
 
     $assemblyChanges | % { $_.Project.Properties.Item("AssemblyName").Value = $_.OldName }
-
-    $f = Get-Project "FsAsn1.Tests" | % projectitems | ? name -eq "Script1.fsx"
-    $DTE.ItemOperations.OpenFile($f.FileNames(0)) | Out-Null
 }
 
 Build-TypeProvider
